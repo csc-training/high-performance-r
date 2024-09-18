@@ -1,2 +1,2 @@
-# high-performance-r
+# High Performance R
 Materials for High Performance R
