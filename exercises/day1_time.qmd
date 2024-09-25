@@ -1,0 +1,206 @@
+---
+title: "Time_HighPerfR"
+author: "Heli Juottonen (CSC)"
+format: html
+editor: visual
+---
+
+# Measuring running time in R
+
+**Aim:** find out how long it takes to run a specific chunk of R code, for example to choose the fastest of alternative coding solutions or functions. These approaches can be used in profiling R code and improving R code performance.
+
+## 1. Simple approaches
+
+### 1.1 Base R option 1: Sys.time()
+
+Records the current time. By recording the start and end time, the running time of a code chunk can be calculated.
+
+```{r}
+start_time <- Sys.time()
+# enter R code here
+Sys.sleep(3)
+end_time <- Sys.time()
+
+end_time - start_time
+```
+
+### 1.2 Base R option 2: system.time()
+
+A basic way to measure running time in R. Simple to use but limited output and not very precise.
+
+```{r}
+system.time(Sys.sleep(3))
+```
+
+```{r}
+# to include longer expressions, wrap them in curly braces:
+system.time({Sys.sleep(3)
+            Sys.sleep(1.5)
+})
+```
+
+### 1.3 Package tictoc
+
+Similar to `system.time()` but makes it more convenient to include several lines of code.
+
+```{r}
+library(tictoc)
+tic()
+# enter R code here
+print("Time spent sleeping:")
+Sys.sleep(3)
+toc()
+```
+
+## 2. Packages for more detailed timing approaches
+
+These packages allow easily comparing the running time of several alternative code chunks and provide the output as a data frame. They offer more options to modify the operation and the output. The timings are more precise, and the evaluations can be easily set to run multiple times to increase reproducibility.
+
+Note that most of these packages work best for small chunks of code (micro-benchmarking). Investigating the performance and locating the bottlenecks of larger chunks of code and longer scripts is better handled by profiling (covered in a separate section of this course).
+
+### 2.1 microbenchmark
+
+By default, `microbenchmark()` runs each evaluation 100 times and calculates the average. Use the argument `times` to change this. Argument `unit` controls which unit is used in the output (nanoseconds ("ns"), microseconds ("us"), milliseconds ("ms"), seconds ("s") and evaluations per seconds ("eps"), relative runtime compared to the best median time ("relative").
+
+```{r}
+library(microbenchmark)
+results <- microbenchmark(
+  # evaluations separated by commas
+  eval1 = Sys.sleep(1), # use { } to evaluate more complex calls or wrap them in a function
+  eval2 = Sys.sleep(2), 
+  eval3 = Sys.sleep(3),
+  times = 3
+)
+print(results)
+```
+
+Printing a summary and changing the unit displayed:
+
+```{r}
+summary(results, unit = "s")
+```
+
+Plotting the results:
+
+```{r}
+ggplot2::autoplot(results)
+
+```
+
+```{r}
+boxplot(results)
+```
+
+### 2.2 rbenchmark
+
+A wrapper around `system.time()`. By default, each evaluation is run 100 times. Use the argument `replications` to change this. Check the output below - what does `order = "relative"` do?
+
+```{r}
+library(rbenchmark)
+results <- benchmark(
+  "eval1" = Sys.sleep(1), # when the expression has several lines, use { }  or wrap it in a function
+  "eval2" = Sys.sleep(2),
+  "eval3" = Sys.sleep(3),
+  replications = 3, order = "relative"
+  )
+print(results)
+```
+
+### 2.3 [bench](https://bench.r-lib.org/)
+
+In addition to time across evaluations, the package `bench` shows memory allocation, tracks garbage collection events, and supports plotting with `ggplot2`. It includes also the function `system_time()`: a more precise alternative to `system.time().`
+
+```{r}
+library(bench)
+results <- mark(
+  eval1 = Sys.sleep(1), # use { } to evaluate more calls or wrap them in a function
+  eval2 = Sys.sleep(2),
+  eval3 = Sys.sleep(3)
+)
+print(results)
+```
+
+Plotting the results:
+
+```{r}
+ggplot2::autoplot(results)
+```
+
+## 3. Exercises: Measuring running time
+
+### 3.1 Timing a single code snippet
+
+From the timing approaches introduced above, pick a function or a package you haven't used before. Use it to determine the running time of your own code snippet, or use the code snippet and data set below.
+
+If using the provided data and code:
+
+1.  Read in the data set `surveys_complete` from the /scratch directory of the course project (project_2011190) on Puhti:
+
+``` r
+# import the csv file from the scratch directory of the course project
+surveys_complete <- read.csv("/scratch/project_2011190/shared_data/surveys_complete.csv")
+
+# back-up option outside Puhti / outside the course project:
+# download.file(url = "https://tinyurl.com/surveyscomplete",
+#              destfile = "surveys_complete.csv")
+# surveys_complete <- read.csv("surveys_complete.csv")
+```
+
+2.  Code snippet:
+
+``` r
+hindfoot_halfs <- vector(length = nrow(surveys_complete))
+for(row_number in 1:nrow(surveys_complete)) {
+  hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+  hindfoot_halfs[row_number] <- hindfoot_half
+  }
+```
+
+### 3.2 Evaluating alternative coding solutions
+
+Next, use one of timing approaches above to compare the running time of several alternative ways to do the same thing in R.
+
+If your own data set works as a data frame, feel free to use it here instead of the data frame `surveys_complete` (see above how to get this data frame). You are also welcome to change the operation on the data frame - below it is dividing the values in the column hindfoot_length by 2.
+
+1.  **for loop:**
+
+``` r
+hindfoot_halfs <- vector()
+for(row_number in 1:nrow(surveys_complete)) {
+  hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+  hindfoot_halfs <- c(hindfoot_halfs, hindfoot_half)
+  }
+```
+
+2.  **for loop with a pre-assigned result vector:**
+
+``` r
+hindfoot_halfs <- vector(length = nrow(surveys_complete))
+for(row_number in 1:nrow(surveys_complete)) {
+  hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+  hindfoot_halfs[row_number] <- hindfoot_half
+  }
+```
+
+3.  **`apply()` family function**
+
+``` r
+# input requires some modification, because apply expects data in table format
+# you could also pick the column with surveys_complete[8]
+hindfoot_halfs <- apply(surveys_complete[c("hindfoot_length")], 1, function(x) x / 2)
+```
+
+4.  **`map()` family function in the package** `purrr`
+
+``` r
+library(purrr)
+hindfoot_halfs <- map_vec(surveys_complete$hindfoot_length, function(x) x / 2)
+```
+
+5.  **a vectorized function: /**
+
+``` r
+hindfoot_halfs <- surveys_complete$hindfoot_length / 2
+```
+
+Which option is the fastest, which one is the slowest, and why?

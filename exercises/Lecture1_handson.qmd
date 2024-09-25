@@ -1,0 +1,46 @@
+---
+title: "Lecture1_handson_HighPerfR"
+author: "Billy Braithwaite"
+format: html
+editor: visual
+---
+
+# Lecture 1 hands-on
+
+1.  Use a R-project (a piece of it or complete project if it is small enough), and make a flow diagram of needed steps. What preprocessing, analysis, validation, visualization, etc, functions are needed in each step. Use pen & paper/notebook.
+
+2.  From your existing R-project, or imagine one, and create a diagram of phases that needs to be completed to complete the project. Use the DiagrammeR package to visualize the project phases.
+
+    ``` r
+    DiagrammeR::grViz("digraph {
+
+    graph [layout = dot, rankdir = LR]
+
+    # define the global styles of the nodes. We can override these in box if we wish
+    node [shape = rectangle, style = filled, fillcolor = Linen]
+
+    # define datasets here
+    ??? [label = ' ', shape = folder, fillcolor = Beige]
+
+    # define process steps here
+    ???[label = 'Process \n Data']
+    statistical [label = 'Statistical \n Analysis']
+    results [label= 'Results']
+
+    # edge definitions with the node IDs. Insert datasets inside {...}
+    {?? ??} -> ??? ->
+    }")
+    ```
+
+3.  Think of some of the actions or steps you frequently use in your code development workflow. Create helper functions of these frequently used actions into your local .Rprofile.
+
+4.  Create different sized vectors of different types and plot their memory allocation. Start first with only with a few entries and then gradually increase the vector size. What do you notice?
+
+    ``` r
+    library(pryr)
+    sizes <- sapply(???, function(n) object_size(seq_len(n)))
+    plot(??? , sizes, xlab = "Length", ylab = "Size (bytes)",
+    type = "s")
+    ```
+
+5.  User `profvis` package to profile your own code chunk, or pick a base R function and profile an example provided in its documentation. For example, `rnorm`. Hint: use `?function` to see the documentation in RStudio.
