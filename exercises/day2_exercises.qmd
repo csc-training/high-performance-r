@@ -1,0 +1,362 @@
+---
+title: "day2_exercises"
+author: "Heli Juottonen (CSC)"
+format: html
+editor: visual
+---
+
+# R batch jobs on Puhti
+
+## 1. Submitting an R batch job on Puhti: serial batch job
+
+1.  Prepare an R script to be run as a batch job: copy the R script below into a plain text file with the file ending .R. For example, you can use the script window in RStudio to prepare the R script and save it in your personal folder under the course project.
+
+``` r
+# this R script has two sections:
+
+# 1st one prints out some useful basic information of the R session
+
+print(sessionInfo())
+print(parallelly::availableCores()) # What does this do?
+print(Sys.getenv("SLURM_CPUS_PER_TASK")) # What does this do?
+
+# 2nd section runs the same for loop script  we used in the foreach example to process three .csv files
+
+library(vegan)
+
+# change the file path in the next command to your personal folder
+comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/<add folder here>/communities/", pattern = ".csv", full.names = TRUE) 
+
+for (comm_csv in comm_csv_list) {
+  comm <- read.csv2(comm_csv, header = T, row.names = 1)
+  dist <- vegan::vegdist(t(comm), method = "bray")
+  dist <- as.matrix(dist)
+  filename = gsub(".csv", ".dist", comm_csv)
+  write.table(dist, filename)
+}
+```
+
+2.  Prepare a batch job script (plain text file, file ending .sh). For example, you can open a text file in the script window of RStudio, copy the code below there, and save the file with the ending .sh in the same folder as your R script above.
+
+``` bash
+#!/bin/bash -l
+#SBATCH --job-name=my_batchjobtest # give your job a name here
+#SBATCH --account=project_2011190 # project number of the course project
+#SBATCH --output=output_%j.txt
+#SBATCH --error=errors_%j.txt
+#SBATCH --partition=small
+#SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=1000
+#SBATCH --reservation=high_perf_r_fri # only used during this course
+
+# Load r-env
+module load r-env
+# Clean up .Renviron file in home directory
+if test -f ~/.Renviron; then
+    sed -i '/TMPDIR/d' ~/.Renviron
+fi
+
+# Specify a temp folder path (add your personal folder here)
+echo "TMPDIR=/scratch/project_2011190/personal/<add folder here>" >> ~/.Renviron 
+
+# Run the R script
+srun apptainer_wrapper exec Rscript --no-save myscript.R #use your R script file here
+```
+
+3.  Open a login node shell on in the Puhti web interface and navigate to the folder where your R script file and batch job script file are (`cd foldername` moves you into a folder, `..` moves you one step back in the folder structure).
+4.  Submit the job to the Slurm batch queue system on Puhti:
+
+``` bash
+sbatch my_batch_job.sh
+```
+
+To view the status of the job:
+
+``` bash
+squeue -u $USER
+# or
+squeue --me
+```
+
+To cancel a submitted job:
+
+``` bash
+scancel <job_id>
+```
+
+When the job has finished, check the resources it used:
+
+``` bash
+seff <job_id>
+```
+
+Check the error and output files that should be in the same folder as your R script and batch job script files (for example with `less output_<job_id>.txt` in the login node shell).
+
+The R script should produce three files (community1.dist, community2.dist, community3.dist) in the folder where you placed the csv files. Are the result files there?
+
+## 3. Parallel - multiple cores: use of multiple cores built into the R package
+
+In this exercise, we run an example with the package `brms` . From the website of the package (<https://paulbuerkner.com/brms/>):
+
+"*The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan. The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses*."
+
+We are using is as an example of a package, where the use of multiple cores is built in. The only things we have to do to make use of multiple cores is reserve them in the batch job script, and set the number of cores in the function call with `cores = n`. Here, we compare model fitting with 1 core vs. 4 cores.
+
+``` r
+library(brms)
+library(microbenchmark)
+
+# an 'empty' model run first, because compiling takes a while
+fit_empty <- brm(count ~ zAge + zBase * Trt + (1|patient),
+              data = epilepsy, family = poisson(),
+              chains = 0)
+
+# the actual test with different number of cores
+brms_results <- microbenchmark(
+  
+  single_core = {update(fit_empty, recompile = FALSE,
+      chains = 4, cores = 1)
+    },
+  
+  multicore = {update(fit_empty, recompile = FALSE,
+    chains = 4, cores = 4)
+    }, times = 3
+)
+
+print(brms_results)
+```
+
+Batch job script:
+
+``` bash
+#!/bin/bash -l
+#SBATCH --job-name=brms # give your job a name here
+#SBATCH --account=project_2011190 # project number of the course project
+#SBATCH --output=output_%j.txt
+#SBATCH --error=errors_%j.txt
+#SBATCH --partition=small
+#SBATCH --time=00:15:00 # h:min:sek, this reserves 5 minutes
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=5  # this sets the job to have 5 cores (4 + 1 extra)
+#SBATCH --mem-per-cpu=2000
+#SBATCH --reservation=high_perf_r_fri # only used during this course
+
+# Load r-env
+module load r-env
+
+# Clean up .Renviron file in home directory
+if test -f ~/.Renviron; then
+    sed -i '/TMPDIR/d' ~/.Renviron
+fi
+
+# Specify a temp folder path (add your personal folder here)
+echo "TMPDIR=/scratch/project_2011190/personal/<add folder here>" >> ~/.Renviron 
+
+# Run the R script
+srun apptainer_wrapper exec Rscript --no-save brms.R # your R script file here
+```
+
+Submit the batch job with `sbatch` in a login node shell as above. How does adding more cores change the running time? What would you say about the resource use of this example?
+
+## 4. Parallel, multiple cores: future
+
+The package `future` and the family of R packages around it offer lots of possibilities for running R jobs in parallel, often without complicated modifications to sequential scripts. Here, we use the function `future_map` from the package `furrr` to run our distance matrix example in parallel using multiple cores.
+
+R script:
+
+``` r
+library(purrr)
+library(furrr) # one package of the future family of packages
+
+# function that carries out the same distance matrix calculation we used earlier
+distfunction <- function(comm_csv) {
+  comm <- read.csv2(comm_csv, header = T, row.names = 1)
+  dist <- vegan::vegdist(t(comm), method = "bray")
+  dist <- as.matrix(dist)
+  Sys.sleep(5) # added to extend the running time of the small example
+  filename = gsub(".csv", ".dist", comm_csv)
+  write.table(dist, filename)
+}
+
+# listing the csv files in the folder communities
+comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
+
+# sequential
+sequential <- system.time(results <- purrr::map(comm_csv_list, distfunction))
+
+# converting the sequential code into parallel with future_map
+plan(multicore)
+multisession <- system.time(future_map(comm_csv_list, distfunction))
+```
+
+``` bash
+#!/bin/bash -l
+#SBATCH --job-name=future_map # give your job a name here
+#SBATCH --account=project_2011190 # project number of the course project
+#SBATCH --output=output_%j.txt
+#SBATCH --error=errors_%j.txt
+#SBATCH --partition=small
+#SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=3  # this sets the job to have 3
+#SBATCH --mem-per-cpu=1000
+#SBATCH --reservation=high_perf_r_fri # only used during this course
+
+# Load r-env
+module load r-env
+
+# Clean up .Renviron file in home directory
+if test -f ~/.Renviron; then
+    sed -i '/TMPDIR/d' ~/.Renviron
+fi
+
+# Specify a temp folder path (add your personal folder here)
+echo "TMPDIR=/scratch/project_2011190/personal/<your folder here>" >> ~/.Renviron 
+
+# Run the R script
+srun apptainer_wrapper exec Rscript --no-save future_map.R # your R script file here
+```
+
+Submit the batch job with `sbatch`. Check the running times of the sequential and multicore options.
+
+Note that `plan(multicore`) does not work in RStudio. If you want to try this example in RStudio, use `plan(multisession)` instead.
+
+## 4. Array job
+
+Array jobs are another way to handle embarassingly parallel problems, for example using the same R script to process many files. Instead of submitting multiple jobs, several subtasks are submitted at once as an array job. The resources in the batch job script are for one subtask of the array.
+
+R script for one iteration of the for loop we had above:
+
+``` r
+# this lets us access the array number in R (from $SLURM_ARRAY_TASK_ID in the batch job script)
+arrays <- commandArgs(trailingOnly = TRUE)
+
+filepath <- "/scratch/project_2011190/personal/your_folder/communities"
+csv_name <- paste0(filepath, "community", arrays[1], ".csv")
+
+comm <- read.csv2(csv_name, header = T, row.names = 1)
+dist <- vegan::vegdist(t(comm), method = "bray")
+dist <- as.matrix(dist)
+Sys.sleep(5) # added to extend the running time of the small example
+filename = gsub(".csv", "_array.dist", csv_name)
+write.table(dist, filename)
+print(filename) # prints the file name into the output file which would otherwise be empty
+```
+
+Batch job script (note the line `--array`):
+
+``` bash
+#!/bin/bash -l
+#SBATCH --job-name=my_array_job # name your job here
+#SBATCH --account=project_2011190 # project number of the course project
+#SBATCH --output=array_job_out_%A_%a.txt # note the different format
+#SBATCH --error=array_job_err_%A_%a.txt # note the different format
+#SBATCH --partition=small
+#SBATCH --time=00:05:00
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=1000
+#SBATCH --array=1-3 # specific line to array jobs
+#SBATCH --reservation=high_perf_r_fri # only used during this course
+
+# Load r-env
+module load r-env
+
+# Clean up .Renviron file in home directory
+if test -f ~/.Renviron; then
+    sed -i '/TMPDIR/d' ~/.Renviron
+fi
+
+# Specify a temp folder path (add your personal folder here)
+echo "TMPDIR=/scratch/project_2011190/personal/<your folder here>" >> ~/.Renviron 
+
+# Run the R script
+srun apptainer_wrapper exec Rscript --no-save my_array_script.R $SLURM_ARRAY_TASK_ID
+```
+
+## 5. Parallel, multiple nodes, future
+
+When the resources on one node are not anymore sufficient for a job, it is possible to use multiple nodes. This is a more advanced example compared to the ones above - it is not that easy to make this type of jobs work correctly in R. Because we are distributing the job over several nodes, specific packages are needed to handle the communication between the nodes. Here we are again using the `future` package and the `furr` package in the future package family (`furrr` calls `future` in the background).
+
+``` r
+library(furrr) # one package of the future family of packages
+
+# function that carries out the same distance matrix calculation we used earlier
+distfunction <- function(comm_csv) {
+  comm <- read.csv2(comm_csv, header = T, row.names = 1)
+  dist <- vegan::vegdist(t(comm), method = "bray")
+  dist <- as.matrix(dist)
+  Sys.sleep(5) # added to extend the running time of the small example
+  filename = gsub(".csv", ".dist", comm_csv)
+  write.table(dist, filename)
+  print(Sys.getenv("SLURMD_NODENAME"))
+  print(filename)
+}
+
+# listing the csv files in the folder communities
+comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/<add your folder>/communities", pattern = ".csv", full.names = TRUE) 
+
+cl <- getMPIcluster()
+plan(cluster, workers = cl)
+
+many_clusters <- system.time(future_map(comm_csv_list, distfunction))
+print(many_clusters)
+
+stopCluster(cl)
+```
+
+Batch job script (note the modifications on the last line):
+
+``` bash
+#!/bin/bash -l
+#SBATCH --job-name=future_map # give your job a name here
+#SBATCH --account=project_2011190 # project number of the course project
+#SBATCH --output=output_%j.txt
+#SBATCH --error=errors_%j.txt
+#SBATCH --partition=small
+#SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
+#SBATCH --nodes=3
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=1000
+#SBATCH --reservation=high_perf_r_fri # only used during this course
+
+# Load r-env
+module load r-env
+
+# Clean up .Renviron file in home directory
+if test -f ~/.Renviron; then
+    sed -i '/TMPDIR/d' ~/.Renviron
+fi
+
+# Specify a temp folder path (add your personal folder here)
+echo "TMPDIR=/scratch/project_2011190/personal/myfolder" >> ~/.Renviron 
+
+# Run the R script - note that this line is different from the other examples
+srun apptainer_wrapper exec RMPISNOW --no-save --slave -f future_cluster.R
+```
+
+## 6. Extra: monitoring processes during the job
+
+If you are familiar with Linux commands and batch jobs in general, here is an extra challenge. The aim here is to verify that a parallel job works as intended. Start an R batch job that uses multiple cores (note that the job has to run long enough so that you have time for the next steps). Run `squeue` to see which node your job is running on.
+
+Then, in the terminal, go to the specific node with: `ssh <node_number>`. Then, we can check the processes running for your job with top, htop or pstree (or another command for the same purpose you are familiar with):
+
+``` bash
+top -u username
+```
+
+``` bash
+module load htop
+htop -u username
+```
+
+``` bash
+pstree username -np
+```
