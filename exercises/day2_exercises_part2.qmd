@@ -1,6 +1,6 @@
 ---
-title: "day2_exercises"
-author: "Heli Juottonen (CSC)"
+title: "R batch jobs on Puhti"
+author: "High performance R 2024"
 format: html
 editor: visual
 ---
@@ -97,7 +97,7 @@ Check the error and output files that should be in the same folder as your R scr
 
 The R script should produce three files (community1.dist, community2.dist, community3.dist) in the folder where you placed the csv files. Are the result files there?
 
-## 3. Parallel - multiple cores: use of multiple cores built into the R package
+## 2. Parallel - multiple cores: use of multiple cores built into the R package
 
 In this exercise, we run an example with the package `brms` . From the website of the package (<https://paulbuerkner.com/brms/>):
 
@@ -162,7 +162,7 @@ srun apptainer_wrapper exec Rscript --no-save brms.R # your R script file here
 
 Submit the batch job with `sbatch` in a login node shell as above. How does adding more cores change the running time? What would you say about the resource use of this example?
 
-## 4. Parallel, multiple cores: future
+## 3. Parallel, multiple cores: future
 
 The package `future` and the family of R packages around it offer lots of possibilities for running R jobs in parallel, often without complicated modifications to sequential scripts. Here, we use the function `future_map` from the package `furrr` to run our distance matrix example in parallel using multiple cores.
 
@@ -187,10 +187,12 @@ comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/<your fold
 
 # sequential
 sequential <- system.time(results <- purrr::map(comm_csv_list, distfunction))
+print(sequential)
 
 # converting the sequential code into parallel with future_map
 plan(multicore)
 multisession <- system.time(future_map(comm_csv_list, distfunction))
+print(multisession)
 ```
 
 ``` bash
@@ -223,6 +225,8 @@ srun apptainer_wrapper exec Rscript --no-save future_map.R # your R script file 
 ```
 
 Submit the batch job with `sbatch`. Check the running times of the sequential and multicore options.
+
+If your jobs in these exercises keep running longer than 10 minutes, something is probably wrong - use `scancel <job_id>` to cancel again, check what could be wrong and try again.
 
 Note that `plan(multicore`) does not work in RStudio. If you want to try this example in RStudio, use `plan(multisession)` instead.
 
@@ -319,13 +323,12 @@ Batch job script (note the modifications on the last line):
 #SBATCH --account=project_2011190 # project number of the course project
 #SBATCH --output=output_%j.txt
 #SBATCH --error=errors_%j.txt
-#SBATCH --partition=small
+#SBATCH --partition=large
 #SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
 #SBATCH --nodes=3
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=1000
-#SBATCH --reservation=high_perf_r_fri # only used during this course
 
 # Load r-env
 module load r-env

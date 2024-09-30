@@ -1,7 +1,7 @@
 ---
 title: "Parallel R / HPC"
 author: "Heli Juottonen (CSC)"
-format: pdf
+format: html
 editor: visual
 ---
 
@@ -53,8 +53,6 @@ One node:
 
     -   package versions within an R version don't change - only updated in a new R version
 
-    -   
-
     -   avoid updating packages when installing new ones
 
 -   over 1400 packages installed
@@ -105,7 +103,7 @@ if test -f ~/.Renviron; then
 fi
 
 # Specify a temp folder path 
-echo "TMPDIR=/scratch/project_2011190/personal/myfolder" >> ~/.Renviron 
+echo "TMPDIR=/scratch/project_2011190/personal/helijuot" >> ~/.Renviron 
 
 # Run the R script
 srun apptainer_wrapper exec Rscript --no-save myscript.R
@@ -169,13 +167,19 @@ Different strategies:
 
     -   used with multiple nodes
 
-Strategy is defined with `plan()`, for example `plan(multisession`
+Strategy is defined with `plan()`, for example `plan(multisession)`
 
 -   multisession and multicore use `parallelly::availableCores()` to determine the number of processes
 
+## Distributed computing
+
+![](figures/distributed.png)
+
+![](figures/mpi.png)
+
 ## Tips for parallel R and R jobs on a supercomputer
 
-by default, R uses one core / thread
+-   by default, R uses one core / thread
 
 -   having a lot of cores available doesn't guarantee that your R script uses them
 
