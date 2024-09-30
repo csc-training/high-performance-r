@@ -1,0 +1,386 @@
+---
+title: "Getting started with parallel R: foreach"
+author: "High performance R 2024"
+format: html
+editor: visual
+---
+
+## Getting started with parallel R: `foreach`
+
+Checking how many cores there are available in the session:
+
+```{r}
+parallelly::availableCores()
+```
+
+**Important:** do not use parallel::detectCores() on Puhti - it always returns the maximum number of cores in a node (40), no matter how many have been reserved. This causes problems!
+
+```{r}
+# do not use in scripts or R jobs on Puhti - this gives the wrong number of cores!
+parallel::detectCores()
+```
+
+Let's start from a simple for loop and check how long it runs:
+
+```{r}
+library(tictoc)
+
+tic()
+for (i in 1:3) {
+  sqrt(i)
+  Sys.sleep(5) # added to make this example script run longer
+}
+toc()
+```
+
+Same example as above but this time using the package `foreach` (still sequential, not parallel):
+
+```{r}
+library(foreach)
+library(tictoc)
+
+tic()
+foreach(i = 1:3, .combine = 'c') %do% {
+  sqrt(i)
+  Sys.sleep(5)
+}
+toc()
+```
+
+Running the same thing **in parallel** taking advantage of **3 cores**:
+
+```{r}
+library(doParallel)
+registerDoParallel(cores = 3) #registering a backend for foreach
+
+tic()
+foreach(i = 1:3, .combine = 'c') %dopar% {
+  sqrt(i)
+  Sys.sleep(5)
+}
+toc()
+
+# unregistering the backend by changing back to sequential:
+registerDoSEQ()
+```
+
+What would happen without the sleep step (= a very short run)? Why?
+
+```{r}
+# sequential
+tic()
+foreach(i = 1:3, .combine = 'c') %do% {
+  sqrt(i)
+}
+toc()
+```
+
+```{r}
+# parallel
+tic()
+doParallel::registerDoParallel(cores = 3)
+foreach(i = 1:3, .combine = 'c') %dopar% {
+  sqrt(i)
+}
+toc()
+```
+
+## Exercise on `foreach`
+
+1.  In the course project folder on Puhti `/scratch/project_2011190/shared_data` there is a folder `communities` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2011190/personal`.
+
+2.  Start an RStudio session on the Puhti web interface (www.puhti.csc.fi) using the following resources:
+
+    project: project_2011190
+
+    reservation: high_perf_r_fri
+
+    number of CPU cores: 5
+
+    memory: 6 GB
+
+    local disk: 32 GB (default)
+
+    R version: 4.4.0 (default)
+
+    time: 4:00:00 (default)
+
+3.  First, check how long running the following code snippet takes (use one of the timing approaches introduced on day 1).
+
+    Note: change the file path in the first command to your folder where you copied the `communities` folder
+
+    ``` r
+    # creating a list of .csv files in a folder
+
+    comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/xxxxxx/communities/", pattern = ".csv", full.names = TRUE) 
+
+    # this for loop goes through the .csv files in the list and carries out the same operations on each of them (reads in the csv file, calculates a distance matrix and saves the matrix as a .dist file)
+
+    for (comm_csv in comm_csv_list) {
+      comm <- read.csv2(comm_csv, header = T, row.names = 1)
+      dist <- vegan::vegdist(t(comm), method = "bray")
+      dist <- as.matrix(dist)
+      Sys.sleep(5) # added to extend the running time of the small example
+      filename = gsub(".csv", ".dist", comm_csv)
+      write.table(dist, filename)
+    }
+    ```
+
+4.  Then, let's change the for loop into a parallel approach using `foreach`.
+
+Check the example above for a reminder on what needed to be changed in the for loop.
+
+Hints: Which packages do you need to load? How can you tell `foreach` how many cores to use? What needs to be added before the first curly bracket of the for loop?
+
+What happens to the running time compared to the sequential approach above?
+
+```{r}
+
+library(foreach)
+library(doParallel)
+library(tictoc)
+
+comm_csv_list <- list.files(path = "/scratch/project_2011190/personal/helijuot/communities/", pattern = ".csv", full.names = TRUE)
+
+registerDoParallel(cores = 3) #registering a backend for foreach
+
+tic()
+foreach (comm_csv = comm_csv_list) %dopar% {
+  comm <- read.csv2(comm_csv, header = T, row.names = 1)
+  dist <- vegan::vegdist(t(comm), method = "bray")
+  dist <- as.matrix(dist)
+  Sys.sleep(5) # added to extend the running time of the small example
+  filename = gsub(".csv", ".dist", comm_csv)
+  write.table(dist, filename)
+}
+toc()
+```
+
+## Exercise: Data aggregation
+
+In this exercise, you'll experiment with data aggregation using several different dplyr approaches, both sequential and parallel approaches. In the parallel sections, insert Sys.time() into appropriate places to measure when the code starts, when the parallel section starts, and when data chunking starts, and when the code ends. In the final parallel function version, you will experiment with different number of cores to see how the number of cores affects the computation.
+
+start with a low n, and then gradually increase the size.
+
+``` r
+# Comparing basic dplyr usage against doParallel in dataset aggregation
+
+library( dplyr     )
+library( stringi   )
+library( lubridate )
+
+
+# Simulate dataset for the exercise
+n = 1000
+
+data = data.frame( id   = 1:n,
+                   str  = stri_rand_strings( n, 4 ), 
+                   num1 = rnorm( n ),
+                   num2 = rnorm( n, mean = 10, sd = 2 ),
+                   num3 = rnorm( n, mean = 100, sd = 10 ) 
+                 )
+
+head( data )
+
+timediff_sec = function( t1, t2 )
+{ return( as.numeric( difftime( t2, t1, units = "secs") ) ) }
+
+dplyr_bench = function( dataset ) {
+  start_t = Sys.time()
+  
+  res = dataset %>%
+        group_by( str ) %>% summarize( mean_num1 = mean( num1 ),
+                                       mean_num2 = mean( num2 ),
+                                       mean_num3 = mean( num3 ) 
+                                       )
+  end_t = Sys.time()
+  dur   = timediff_sec( start_t, end_t )
+  
+  print( paste0( "Total time elapsed: ", dur ) )
+  return( res )
+}
+
+dplyr_bench_res = dplyr_bench( data )
+
+# Rewrite the above such that the code uses data.table as a backend for dplyr
+library(data.table)
+
+dtplyr_bench = function(dataset) {
+  start_time = Sys.time()
+  
+  res = dataset %>%
+    group_by(str) %>%
+    summarize(
+      mean_num1 = mean(num1),
+      mean_num2 = mean(num2),
+      mean_num3 = mean(num3)
+    ) %>% as_tibble()
+    
+  
+  end_time = Sys.time()
+  duration = timediff_sec(start_time, end_time)
+  
+  print(paste0("Total time:", duration))
+  return(res)
+}
+
+dtplyr_dataset = data # TASK: is something missing here?
+dtplyr_bench_res = dtplyr_bench(dtplyr_dataset)
+
+# Now aggregate using doParallel
+
+# TASK: Insert Sys.time() into the right places so you can measure computing time.
+# Measure the following: when to code starts, when the parallel step starts, when does data
+# chunking starts, and when the code ends.
+
+library(doParallel)
+
+dplyr_parallel_bench = function(dataset) {
+  # Function we'll run in parallel
+  agg_function = function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      )
+  }
+  
+  
+  # Parallel setup
+  ncores = 4
+  registerDoParallel( cores = ncores )
+  par_time = Sys.time()
+  
+  # Split the data into chunks
+  chunk_size = n %/% ncores
+  data_chunks = split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+  
+  
+  # Perform the aggregation in parallel
+  parallel_results = (chunk = data_chunks, .combine = ?, .packages = ?) ? {
+    agg_function(chunk)
+  }
+  
+  # Combine the results from parallel processing
+  final_result = do.call(rbind, parallel_results)
+  
+  
+  
+  
+  print(paste("Total time:", timediff_sec( start_time, end_time)))
+  print(paste("Parallel init time:", timediff_sec(start_time, par_time )))
+  print(paste("Chunk time:", timediff_sec(par_time, chunk_time)))
+  print(paste("Processing time:", timediff_sec(chunk_time, end_time )))
+  
+  return(final_result)
+}
+
+dplyr_parallel_bench_res = dplyr_parallel_bench(data)
+
+
+dplyr_parallel_tibble_bench = function(dataset) {
+  # Function we'll run in parallel
+  agg_function = function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      ) %>% as_tibble()
+  }
+  
+  
+  
+  # Parallel setup
+  ncores = 4
+  registerDoParallel( cores = ncores )
+  
+  
+  # Split the data into chunks
+  chunk_size = n %/% ncores
+  data_chunks = split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+  
+  
+  # Perform the aggregation in parallel
+  parallel_results = ?(chunk = data_chunks, .combine = ?, .packages = ?) ? {
+    agg_function(chunk)
+  }
+  
+  # Combine the results from parallel processing
+  final_result = do.call(rbind, parallel_results)
+  end_time = Sys.time()
+  
+  
+  
+  print(paste("Total time:", timediff_sec( start_time, end_time)))
+  print(paste("Parallel init time:", timediff_sec(start_time, par_time )))
+  print(paste("Chunk time:", timediff_sec(par_time, chunk_time)))
+  print(paste("Processing time:", timediff_sec(chunk_time, end_time )))
+  
+  return(final_result)
+}
+
+dplyr_parallel_bench_res <- dplyr_parallel_bench(data)
+
+# Testing with different amount of cores
+core_count_test = function(dataset, ncores_max) {
+  # Function we'll run in parallel
+  agg_function = function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      )
+  }
+  
+  # Initialize an empty data frame
+  time_df = data.frame(ncores = c(), total_time = c(), compute_time = c(), overhead_time = c())
+  
+  # Iterate
+  for (ncores in 1:ncores_max) {
+    
+    
+    # Parallel setup
+    
+    registerDoParallel( cores = ncores)
+    
+    
+    # Split the data into chunks
+    chunk_size = n %/% ncores
+    data_chunks = split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+    
+    
+    # Perform the aggregation in parallel
+    parallel_results = ?(chunk = data_chunks, .combine = ?, .packages = ?) ? {
+      agg_function(chunk)
+    }
+    
+    # Combine the results from parallel processing
+    final_result = do.call(rbind, parallel_results)
+    
+    
+    
+    # Append results
+    time_df = rbind(
+      time_df, 
+      data.frame(
+        ncores        = ncores, 
+        total_time    = timediff_sec(start_time, end_time ), 
+        compute_time  = timediff_sec(chunk_time, end_time ), 
+        overhead_time = timediff_sec(start_time, par_time ) + 
+                        timediff_sec(par_time, chunk_time )
+      )
+    )
+  }
+  
+  return(time_df)
+}
+
+core_count_test_res = core_count_test(dataset = data, ncores_max = 8)
+core_count_test_res
+```

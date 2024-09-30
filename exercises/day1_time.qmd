@@ -1,13 +1,13 @@
 ---
-title: "Time_HighPerfR"
-author: "Heli Juottonen (CSC)"
+title: "Measuring running time in R"
+author: "High performance R 2024"
 format: html
 editor: visual
 ---
 
 # Measuring running time in R
 
-**Aim:** find out how long it takes to run a specific chunk of R code, for example to choose the fastest of alternative coding solutions or functions. These approaches can be used in profiling R code and improving R code performance.
+**Aim:** find out how long it takes to run a specific chunk of R code, for example to choose the fastest of alternative coding solutions or functions. These approaches can be used as a part of profiling R code and improving R code performance.
 
 ## 1. Simple approaches
 
@@ -204,3 +204,70 @@ hindfoot_halfs <- surveys_complete$hindfoot_length / 2
 ```
 
 Which option is the fastest, which one is the slowest, and why?
+
+### Solutions:
+
+``` r
+# These solutions are examples - there are many different ways to do the same.
+
+# Part 1:
+
+# Simple approach
+library(tictoc)
+tic()
+hindfoot_halfs <- vector(length = nrow(surveys_complete))
+for(row_number in 1:nrow(surveys_complete)) {
+  hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+  hindfoot_halfs[row_number] <- hindfoot_half
+}
+toc()
+
+
+library(bench)
+results_b <- mark(
+{hindfoot_halfs <- vector(length = nrow(surveys_complete))
+for(row_number in 1:nrow(surveys_complete)) {
+  hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+  hindfoot_halfs[row_number] <- hindfoot_half
+}}
+)
+
+# Part 2:
+
+library(microbenchmark)
+
+# import the csv file from the scratch directory of the course project
+surveys_complete <- read.csv("/scratch/project_2011190/shared_data/surveys_complete.csv", stringsAsFactors = TRUE)
+
+results <- microbenchmark(
+  for_loop = {
+    hindfoot_halfs <- vector()
+    for(row_number in 1:nrow(surveys_complete)) {
+        hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+        hindfoot_halfs <- c(hindfoot_halfs, hindfoot_half)
+        }
+},
+
+for_loop_pre = {
+  hindfoot_halfs <- vector(length = nrow(surveys_complete))
+  for(row_number in 1:nrow(surveys_complete)) {
+    hindfoot_half <- surveys_complete$hindfoot_length[row_number] / 2
+    hindfoot_halfs[row_number] <- hindfoot_half
+    }
+},
+
+ apply = {
+  hindfoot_halfs <- apply(surveys_complete[c("hindfoot_length")], 1, function(x) x / 2)
+},
+
+ purrr_map = {
+  hindfoot_halfs <- purrr::map_vec(surveys_complete$hindfoot_length, function(x) x / 2)
+},
+
+ vectorised = {
+  hindfoot_halfs <- surveys_complete$hindfoot_length / 2
+},
+times = 3)
+
+summary(results, unit = "s")
+```
