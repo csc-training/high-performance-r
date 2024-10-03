@@ -134,6 +134,8 @@ Hints: Which packages do you need to load? How can you tell `foreach` how many c
 
 What happens to the running time compared to the sequential approach above?
 
+**Solution:**
+
 ```{r}
 
 library(foreach)
@@ -156,7 +158,7 @@ foreach (comm_csv = comm_csv_list) %dopar% {
 toc()
 ```
 
-## Exercise: Data aggregation
+## Exercise: Data aggregation and parallel R
 
 In this exercise, you'll experiment with data aggregation using several different dplyr approaches, both sequential and parallel approaches. In the parallel sections, insert Sys.time() into appropriate places to measure when the code starts, when the parallel section starts, and when data chunking starts, and when the code ends. In the final parallel function version, you will experiment with different number of cores to see how the number of cores affects the computation.
 
@@ -384,3 +386,227 @@ core_count_test = function(dataset, ncores_max) {
 core_count_test_res = core_count_test(dataset = data, ncores_max = 8)
 core_count_test_res
 ```
+
+**Solution:**
+
+``` r
+# Comparing basic dplyr usage against doParallel in dataset aggregation
+
+library( dplyr     )
+library( stringi   )
+library( lubridate )
+
+
+# Simulate dataset for the exercise
+n = 1000000
+
+data = data.frame( id   = 1:n,
+                   str  = stri_rand_strings( n, 4 ), 
+                   num1 = rnorm( n ),
+                   num2 = rnorm( n, mean = 10, sd = 2 ),
+                   num3 = rnorm( n, mean = 100, sd = 10 ) 
+                 )
+
+head( data )
+
+timediff_sec = function( t1, t2 )
+{ return( as.numeric( difftime( t2, t1, units = "secs") ) ) }
+
+dplyr_bench = function( dataset ) {
+  start_t = Sys.time()
+  
+  res = dataset %>%
+        group_by( str ) %>% summarize( mean_num1 = mean( num1 ),
+                                       mean_num2 = mean( num2 ),
+                                       mean_num3 = mean( num3 ) 
+                                       )
+  end_t = Sys.time()
+  dur   = timediff_sec( start_t, end_t )
+  
+  print( paste0( "Total time elapsed: ", dur ) )
+  return( res )
+}
+
+dplyr_bench_res = dplyr_bench( data )
+
+# Use data.table as a backend for dplyr
+library(data.table)
+
+dtplyr_bench = function(dataset) {
+  start_time = Sys.time()
+  
+  res = dataset %>%
+    group_by(str) %>%
+    summarize(
+      mean_num1 = mean(num1),
+      mean_num2 = mean(num2),
+      mean_num3 = mean(num3)
+    ) %>%
+    as_tibble()
+  
+  end_time = Sys.time()
+  duration = timediff_sec(start_time, end_time)
+  
+  print(paste0("Total time:", duration))
+  return(res)
+}
+
+dtplyr_dataset <- as_tibble(data)
+dtplyr_bench_res <- dtplyr_bench(dtplyr_dataset)
+
+# Now aggregate using doParallel
+library(doParallel)
+
+dplyr_parallel_bench <- function(dataset) {
+  # Function we'll run in parallel
+  agg_function <- function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      )
+  }
+  
+  start_time <- Sys.time()
+  
+  # Parallel setup
+  ncores = 4
+  registerDoParallel( cores = ncores )
+  par_time <- Sys.time()
+  
+  # Split the data into chunks
+  chunk_size <- n %/% ncores
+  data_chunks <- split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+  chunk_time <- Sys.time()
+  
+  # Perform the aggregation in parallel
+  parallel_results <- foreach(chunk = data_chunks, .combine = rbind, .packages = "dplyr") %dopar% {
+    agg_function(chunk)
+  }
+  
+  # Combine the results from parallel processing
+  final_result <- do.call(rbind, parallel_results)
+  end_time <- Sys.time()
+  
+  
+  
+  print(paste("Total time:", timediff_sec( start_time, end_time)))
+  print(paste("Cluster init time:", timediff_sec(start_time, par_time )))
+  print(paste("Chunk time:", timediff_sec(par_time, chunk_time)))
+  print(paste("Processing time:", timediff_sec(chunk_time, end_time )))
+  
+  return(final_result)
+}
+
+dplyr_parallel_bench_res = dplyr_parallel_bench(data)
+
+
+dplyr_parallel_tibble_bench <- function(dataset) {
+  # Function we'll run in parallel
+  agg_function <- function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      ) %>% as_tibble()
+  }
+  
+  start_time <- Sys.time()
+  
+  # Parallel setup
+  ncores = 4
+  registerDoParallel( cores = ncores )
+  par_time <- Sys.time()
+  
+  # Split the data into chunks
+  chunk_size <- n %/% ncores
+  data_chunks <- split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+  chunk_time <- Sys.time()
+  
+  # Perform the aggregation in parallel
+  parallel_results <- foreach(chunk = data_chunks, .combine = rbind, .packages = "dplyr") %dopar% {
+    agg_function(chunk)
+  }
+  
+  # Combine the results from parallel processing
+  final_result <- do.call(rbind, parallel_results)
+  end_time <- Sys.time()
+  
+  
+  
+  print(paste("Total time:", timediff_sec( start_time, end_time)))
+  print(paste("Parallel init time:", timediff_sec(start_time, par_time )))
+  print(paste("Chunk time:", timediff_sec(par_time, chunk_time)))
+  print(paste("Processing time:", timediff_sec(chunk_time, end_time )))
+  
+  return(final_result)
+}
+
+dplyr_parallel_bench_res <- dplyr_parallel_bench(data)
+
+# Testing with different amount of cores
+core_count_test <- function(dataset, ncores_max) {
+  # Function we'll run in parallel
+  agg_function <- function(dataset_chunk) {
+    dataset_chunk %>%
+      group_by(str) %>%
+      summarize(
+        mean_num1 = mean(num1),
+        mean_num2 = mean(num2),
+        mean_num3 = mean(num3)
+      )
+  }
+  
+  # Initialize an empty data frame
+  time_df = data.frame(ncores = c(), total_time = c(), compute_time = c(), overhead_time = c())
+  
+  # Iterate
+  for (ncores in 1:ncores_max) {
+    start_time <- Sys.time()
+    
+    # Parallel setup
+    
+    registerDoParallel( cores = ncores)
+    par_time <- Sys.time()
+    
+    # Split the data into chunks
+    chunk_size <- n %/% ncores
+    data_chunks <- split(dataset, ceiling(seq_along(dataset$id) / chunk_size))
+    chunk_time <- Sys.time()
+    
+    # Perform the aggregation in parallel
+    parallel_results <- foreach(chunk = data_chunks, .combine = rbind, .packages = "dplyr") %dopar% {
+      agg_function(chunk)
+    }
+    
+    # Combine the results from parallel processing
+    final_result <- do.call(rbind, parallel_results)
+    end_time <- Sys.time()
+    
+    
+    # Append results
+    time_df = rbind(
+      time_df, 
+      data.frame(
+        ncores        = ncores, 
+        total_time    = timediff_sec(start_time, end_time ), 
+        compute_time  = timediff_sec(chunk_time, end_time ), 
+        overhead_time = timediff_sec(start_time, par_time ) + 
+                        timediff_sec(par_time, chunk_time )
+      )
+    )
+  }
+  
+  return(time_df)
+}
+
+core_count_test_res <- core_count_test(dataset = data, ncores_max = 8)
+core_count_test_res
+```
+
+
+
