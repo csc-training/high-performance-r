@@ -768,6 +768,126 @@ x
 
 ::::::
 
+# Sparse matrices
+
+:::: {.columns}
+
+::: {.column width="60%"}
+
+In a *sparse matrix* most elements are zeros.
+
+More efficient storage: store only nonzero elements explicitly.
+
+Widely used formats:
+
+* column-wise (CSC),
+* row-wise (CSR),
+* coordinate list.
+
+:::
+
+::: {.column width="40%"}
+
+$$
+\left[
+\begin{array}{rrrrr}
+  0  & 0 & 1 & 3 & 0 \\
+  0  & 0 & 2 & 0 & 0 \\
+  0  & 0 & 0 & 0 & 0 \\
+  0  & 4 & 0 & 0 & 0
+\end{array}
+\right]
+$$
+
+in CSC format:
+$$
+\begin{eqnarray*}
+    p &=& \left[\begin{array}{rrrrrr} 0 & 0 & 1 & 3 & 4 & 4 \end{array}\right] \\
+    i &=& \left[\begin{array}{rrrr} 3 & 0 & 1 & 0 \end{array}\right] \\
+    x &=& \left[\begin{array}{rrrr} 4 & 1 & 2 & 3 \end{array}\right]
+\end{eqnarray*}
+$$
+
+:::
+
+::::
+
+# Sparse matrices (cont.)
+
+:::::: {.columns}
+
+::::: {.column}
+
+```r
+library(Matrix)
+
+# Generate a 1000 x 1000 matrix and fill
+# 100 positions with random values.
+x <- matrix(rep(0, 1000*1000), nrow=1000)
+idx <- cbind(
+  sample(1000, 100, replace=T),
+  sample(1000, 100, replace=T)
+)
+x[idx] <- rnorm(length(x[idx]))
+```
+
+:::::
+
+::::: {.column}
+
+:::: {.columns}
+::: {.column}
+<small>CODE</small>
+:::
+::: {.column style="text-align: right;"}
+<small>OUTPUT</small>
+:::
+::::
+
+:::: {.columns}
+::: {.column width="70%"}
+```r
+object.size(x)
+```
+:::
+::: {.column width="30%"}
+:::
+::::
+
+:::: {.columns}
+::: {.column width="50%"}
+:::
+::: {.column width="50%"}
+```txt
+8000216 bytes
+```
+:::
+::::
+
+:::: {.columns}
+::: {.column width="70%"}
+```r
+x.sp <- as(x, "dgCMatrix")
+object.size(x.sp)
+```
+:::
+::: {.column width="30%"}
+:::
+::::
+
+:::: {.columns}
+::: {.column width="50%"}
+:::
+::: {.column width="50%"}
+```txt
+6704 bytes
+```
+:::
+::::
+
+:::::
+::::::
+
 # Memory management
 
 <font style="font-weight: bold; color: var(--csc-magenta);">Low-level</font> (e.g. C)

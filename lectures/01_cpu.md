@@ -448,3 +448,66 @@ $by.total
 :::
 
 ::::
+
+# Rcpp
+
+:::: {.columns}
+
+::: {.column}
+
+* seamless integration of C++ code inside R,
+* allows to write high-performance imperative code,
+* useful for computations that cannot be expressed using efficient builtins.
+
+:::
+
+::: {.column}
+
+```r
+library(Rcpp)
+
+cppFunction('
+NumericVector cumsum_rcpp(NumericVector x) {
+
+  NumericVector result (x.size());
+
+  result[0] = x[0];
+  for(int i = 1; i < x.size(); ++i) {
+    result[i] = result[i-1] + x[i];
+  }
+  return result;
+}')
+```
+
+:::
+
+::::
+
+# Rcpp
+
+:::: {.columns}
+
+::: {.column}
+
+```r
+mb <- microbenchmark(
+  slow_cumsum = { slow_cumsum(x) },
+  cumsum_rcpp = { cumsum_rcpp(x) },
+  cumsum = { cumsum(x) },
+  unit='s',
+  times=100
+)
+
+plot(mb)
+```
+
+:::
+
+::: {.column}
+
+![](figures/01_mb_cumsum_rcpp.png)
+
+:::
+
+::::
+
