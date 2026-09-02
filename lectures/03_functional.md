@@ -215,3 +215,74 @@ dice_game <- function(n)
 * uses efficient built-in implementations,
 * prepares the ground for parallelization (esp. map-reduce).
 
+# Towards parallelization
+
+:::: { .columns }
+
+::: { .column }
+
+* a modern CPU can run operations simultaneously in multiple *threads*,
+  * my laptop: 6 cores, 12 threads,
+  * Roihu: 192 cores, 384 threads,
+* R uses a single thread by default ( = resource waste!),
+* the `future` package family provides parallelization capabilities.
+
+:::
+
+::: { .column width="40%"}
+
+```r
+library(future)
+
+# no parallelization
+plan(sequential)
+
+# multiple processes on one machine
+plan(multicore, workers = 4)
+
+# multiple processes on multiple machines
+plan(cluster, workers = c("w1", "w2"))
+```
+
+:::
+
+::::
+
+
+# `future.apply`: parallel mapping
+
+:::: { .columns }
+
+::: { .column width="60%" }
+
+```r
+library(future)
+library(future.apply)
+library(microbenchmark)
+
+plan(multisession, workers = 8)
+cauchy_stats <- function(n_samples) {
+  summary(rcauchy(n_samples))
+}
+mb <- microbenchmark(
+  sapply = {
+    x <- sapply(rep(10000, 10000), cauchy_stats)
+  },
+  future_sapply = {
+    x <- future_sapply(
+      rep(10000, 10000), cauchy_stats, future.seed=T)
+  },
+  times = 10
+)
+```
+
+:::
+
+::: { .column width="40%"}
+
+
+![](figures/03_mb_future.png)
+
+:::
+
+::::
