@@ -7,7 +7,7 @@ author: ["Heli Juottonen", "Maciej Janicki"]
 # Future: versatile framework for parallel R 
 
 - package `future` + a set of related packages
-  - `furrr`, `future.apply`, `doFuture`, etc.
+  - `furrr`, `future.apply`, `futurize`, `doFuture`, etc.
   - <https://www.futureverse.org/packages-overview.html>
 
 # Benefits of `future`
@@ -25,6 +25,7 @@ author: ["Heli Juottonen", "Maciej Janicki"]
   - launches a set of background sessions as a socket cluster
 - `plan(multicore)`: multiple **cores** by forking
   - faster than multisession when supported (not in Windows, not in RStudio)
+  - good with large objects: no copies created if object not modified 
 - `plan(cluster)`
   - use with multiple **nodes**
 
@@ -40,6 +41,8 @@ map(files, function)
 
 # parallel
 library(furrr) # calls future in the background
+plan(multisession)
+
 future_map(files, function)
 
 # resetting the plan
@@ -47,7 +50,55 @@ plan(sequential)
 
 ```
 
-# Questions on using R on Puhti later on? 
+# Futurize: "parallelize with one magic function"
+
+- new development for extremely simple parallelization
+- supports a selection functions from map-reduce and domain-specific packages
+    - packages: `futurize_supported_packages()``
+    - functions in a package: `futurize_supported_packages("package")`
+- change a script from serial to parallel by adding `|> futurize()`in the end
+
+<br>
+
+```r
+library(futurize)
+plan(multisession)
+
+ys <- purrr::map(xs, sqrt) |> futurize()
+
+ys <- foreach(x = xs) %do% { sqrt(x) } |> futurize()
+
+dds <- DESeq2::DESeq(dds) |> futurize()
+
+res <- vegan::anova(ord, permutations = 999) |> futurize()
+```
+
+# Futurize: "parallelize with one magic function" (2)
+
+```r
+# Serial
+library(purr)
+map(files, function)
+
+# Parallel in two different ways
+
+# 1. with furrr
+library(furrr)
+plan(multisession)
+
+future_map(files, function)
+
+# 2. with purr + futurize
+library(purr)
+library(futurize)
+plan(multisession)
+
+map(files, function) |> futurize()
+
+```
+
+
+# Questions on using R on Roihu later on? 
 
 - email servicedesk\@csc.fi
   - help with r-env, parallelization

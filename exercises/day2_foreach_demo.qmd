@@ -13,10 +13,10 @@ Checking how many cores there are available in the session:
 parallelly::availableCores()
 ```
 
-**Important:** do not use parallel::detectCores() on Puhti - it always returns the maximum number of cores in a node (40), no matter how many have been reserved. This causes problems!
+**Important:** do not use parallel::detectCores() on Roihu - it always returns the maximum number of cores in a node (384), no matter how many have been reserved. This causes problems!
 
 ```{r}
-# do not use in scripts or R jobs on Puhti - this gives the wrong number of cores!
+# do not use in scripts or R jobs on Roihu - this gives the wrong number of cores!
 parallel::detectCores()
 ```
 
