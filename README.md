@@ -6,6 +6,7 @@ Lecture slides (2025):
 
 Exercises (2025):
 * [day 1](./exercises/day1_exercises.md)
+* [day 1 (HSL practical example)](./exercises/day1_hsl.md)
 * [day 2](./exercises/day2_exercises.md)
 * [day 2 foreach demonstration](./exercises/day2_foreach_demo.qmd)
 
