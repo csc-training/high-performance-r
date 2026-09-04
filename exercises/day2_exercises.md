@@ -2,13 +2,13 @@
 
 ### Ex 13 : foreach
 
-1.  In the course project folder on Puhti `/scratch/project_2016453/shared_data` there is a folder `shared_data` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2016453/your_folder/communities`.
+1.  In the course project folder on Roihu `/scratch/project_2020485/shared_data` there is a folder `shared_data` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2020485/your_folder/communities`.
 
-2.  Start an RStudio session on the Puhti web interface (www.puhti.csc.fi) using the following resources:
+2.  Start an RStudio session on the Roihu web interface (www.roihu.csc.fi) using the following resources:
 
-    project: project_2016453
+    project: project_2020485
 
-    reservation: high_perf_r_2
+    reservation: high_perfR_day2
 
     number of CPU cores: 5
 
@@ -16,7 +16,7 @@
 
     local disk: 4 GB (default)
 
-    R version: 4.5.1 (default)
+    R version: 4.6.1 (default)
 
     time: 4:00:00 (default)
 
@@ -27,7 +27,7 @@ Note: change the file path in the first command to your folder where you copied 
 ``` r
 # creating a list of .csv files in a folder
 
-comm_csv_list <- list.files(path = "/scratch/project_2016453/xxxxxx/communities/", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/xxxxxx/communities/", pattern = ".csv", full.names = TRUE) 
 
 # the for loop below goes through the .csv files in the list and carries out the same operations on each of them (reads in the csv file, carries out a distance-based NMDS ordination, and saves the stress value that describes the reliability of the ordination)
 
@@ -70,7 +70,7 @@ print(Sys.getenv("SLURM_CPUS_PER_TASK")) # What does this do?
 # a tidyverse alternative to apply() functions.
 
 # Change the file path in the next command to your personal folder
-comm_csv_list <- list.files(path = "/scratch/project_2016453/personal/<add folder here>/communities/", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/personal/<add folder here>/communities/", pattern = ".csv", full.names = TRUE) 
 
 # A function for running the same ordination we used with foreach
 ordination_function <- function(comm_csv) {
@@ -89,37 +89,29 @@ print(results)
 2.  Prepare a batch job script (plain text file, file ending .sh). For example, you can open a text file in the script window of RStudio, copy the code below there, and save the file with the ending .sh in the same folder as your R script above.
 
 ``` bash
-#!/bin/bash -l
-#SBATCH --job-name=my_batchjobtest # give your job a name here
-#SBATCH --account=project_2016453 # project number of the course project
-#SBATCH --output=output_%j.txt
-#SBATCH --error=errors_%j.txt
-#SBATCH --partition=small
-#SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
-#SBATCH --ntasks=1
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=1000
-#SBATCH --reservation=high_perf_r_2 # only used during this course
+#!/bin/bash
+#SBATCH --job-name=my_batchjobtest    # give your job a name here
+#SBATCH --account=project_2020485     # project number of the course project
+#SBATCH --output=output_%j.txt        # file for R output ((%j will be job id)
+#SBATCH --error=errors_%j.txt         # file for error messages ((%j will be job id)
+#SBATCH --partition=small             # test for testing (max. 15 min), small for actual runs
+#SBATCH --time=00:05:00               # h:min:sek, this reserves 5 minutes
+#SBATCH --ntasks=1                    # number of tasks (only change this for MPI/multinode jobs)
+#SBATCH --nodes=1                     # number of nodes (only change this for MPI/multinode jobs)
+#SBATCH --cpus-per-task=1             # number of cores (increase to get multiple cores)
+#SBATCH --mem-per-cpu=1000M           # memory per core (multiply by cpus to get total memory)
+#SBATCH --reservation=high_perfR_day2 # only used during this course
 
 # Load r-env
 module load r-env
 
-# Clean up .Renviron file in home directory
-if test -f ~/.Renviron; then
-    sed -i '/TMPDIR/d' ~/.Renviron
-fi
-
-# Specify a temp folder path (add your personal folder here)
-echo "TMPDIR=/scratch/project_2016453/<add your folder here>" >> ~/.Renviron 
-
 # Run the R script
-srun apptainer_wrapper exec Rscript --no-save myscript.R #use your R script file here
+srun Rscript --no-save myscript.R #use your R script file here
 ```
 
-3.  Open a login node shell on in the Puhti web interface and navigate to the folder where your R script file and batch job script file are (`cd foldername` moves you into a folder, `..` moves you one step back in the folder structure, `ls -l` shows the files in a folder).
+3.  Open a login node shell on in the Roihu web interface and navigate to the folder where your R script file and batch job script file are (`cd foldername` moves you into a folder, `..` moves you one step back in the folder structure, `ls -l` shows the files in a folder).
 
-4.  Submit the job to the Slurm batch queue system on Puhti:
+4.  Submit the job to the Slurm batch queue system on Roihu:
 
 ``` bash
 sbatch my_batch_job.sh
@@ -184,32 +176,24 @@ print(brms_results)
 Batch job script:
 
 ``` bash
-#!/bin/bash -l
-#SBATCH --job-name=brms # give your job a name here
-#SBATCH --account=project_2016453 # project number of the course project
+#!/bin/bash
+#SBATCH --job-name=brms               # give your job a name here
+#SBATCH --account=project_2020485     # project number of the course project
 #SBATCH --output=output_%j.txt
 #SBATCH --error=errors_%j.txt
 #SBATCH --partition=small
-#SBATCH --time=00:15:00 # h:min:sek, this reserves 15 minutes
+#SBATCH --time=00:15:00               # h:min:sek, this reserves 15 minutes
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=5  # this sets the job to have 5 cores (4 + 1 extra)
-#SBATCH --mem-per-cpu=2000
-#SBATCH --reservation=high_perf_r_2 # only used during this course
+#SBATCH --cpus-per-task=5             # this sets the job to have 5 cores (4 + 1 extra)
+#SBATCH --mem-per-cpu=2000M
+#SBATCH --reservation=high_perfR_day2 # only used during this course
 
 # Load r-env
 module load r-env
 
-# Clean up .Renviron file in home directory
-if test -f ~/.Renviron; then
-    sed -i '/TMPDIR/d' ~/.Renviron
-fi
-
-# Specify a temp folder path (add your personal folder here)
-echo "TMPDIR=/scratch/project_2016453/<add folder here>" >> ~/.Renviron 
-
 # Run the R script
-srun apptainer_wrapper exec Rscript --no-save brms.R # your R script file here
+srun Rscript --no-save brms.R # your R script file here
 ```
 
 Submit the batch job with `sbatch` in a login node shell as above. How does adding more cores change the running time? What would you say about the resource use of this example?
@@ -228,7 +212,7 @@ arrays <- commandArgs(trailingOnly = TRUE)
 arrays <- as.numeric(arrays[1])
 
 # listing the csv files in the folder communities
-comm_csv_list <- list.files(path = "/scratch/project_2016453/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
 
 # selecting the file corresponding to the array number from the file list
 comm_csv <- comm_csv_list[arrays]
@@ -242,33 +226,25 @@ print(nmds$stress)
 Batch job script (note the line `--array`, the different format of the output and error files, and `$SLURM_ARRAY_TASK_ID`in the end of the last line):
 
 ``` bash
-#!/bin/bash -l
-#SBATCH --job-name=my_array_job # name your job here
-#SBATCH --account=project_2016453 # project number of the course project
-#SBATCH --output=array_job_out_%A_%a.txt # note the different format
-#SBATCH --error=array_job_err_%A_%a.txt # note the different format
+#!/bin/bash
+#SBATCH --job-name=my_array_job           # name your job here
+#SBATCH --account=project_2020485         # project number of the course project
+#SBATCH --output=array_job_out_%A_%a.txt  # note the different format
+#SBATCH --error=array_job_err_%A_%a.txt   # note the different format
 #SBATCH --partition=small
 #SBATCH --time=00:05:00
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1000
-#SBATCH --array=1-3 # specific line to array jobs
-#SBATCH --reservation=high_perf_r_2 # only used during this course
+#SBATCH --array=1-3                       # specific line to array jobs
+#SBATCH --reservation=high_perfR_day2     # only used during this course
 
 # Load r-env
 module load r-env
 
-# Clean up .Renviron file in home directory
-if test -f ~/.Renviron; then
-    sed -i '/TMPDIR/d' ~/.Renviron
-fi
-
-# Specify a temp folder path (add your personal folder here)
-echo "TMPDIR=/scratch/project_2016453/<your folder here>" >> ~/.Renviron 
-
 # Run the R script
-srun apptainer_wrapper exec Rscript --no-save my_array_script.R $SLURM_ARRAY_TASK_ID
+srun Rscript --no-save my_array_script.R $SLURM_ARRAY_TASK_ID
 ```
 
 # 6. Future for parallel R
@@ -292,7 +268,7 @@ ordination_function <- function(comm_csv) {
 }
 
 # listing the csv files in the folder communities
-comm_csv_list <- list.files(path = "/scratch/project_2016453/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
 
 # sequential
 sequential <- system.time(results <- purrr::map(comm_csv_list, ordination_function))
@@ -329,7 +305,7 @@ ordination_function <- function(comm_csv) {
 }
 
 # listing the csv files in the folder communities
-comm_csv_list <- list.files(path = "/scratch/project_2016453/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
 
 # part spefic to multinode jobs starts 
 cl <- getMPIcluster()
@@ -347,31 +323,24 @@ stopCluster(cl)
 Batch job script (note the partition, the lines for nodes, ntasks-per-node, and the modifications on the last line):
 
 ``` bash
-#!/bin/bash -l
-#SBATCH --job-name=future_map # give your job a name here
-#SBATCH --account=project_2016453 # project number of the course project
+#!/bin/bash
+#SBATCH --job-name=future_map           # give your job a name here
+#SBATCH --account=project_2020485       # project number of the course project
 #SBATCH --output=output_%j.txt
 #SBATCH --error=errors_%j.txt
-#SBATCH --partition=large # different partition to use multiple nodes
-#SBATCH --time=00:05:00 # h:min:sek, this reserves 5 minutes
-#SBATCH --nodes=3
-#SBATCH --ntasks-per-node=1
+#SBATCH --partition=large               # different partition to use multiple nodes
+#SBATCH --time=00:05:00                 # h:min:sek, this reserves 5 minutes
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=3
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=1000
+#SBATCH --mem-per-cpu=1000M
+#SBATCH --reservation=high_perfR_day2
 
 # Load r-env
 module load r-env
 
-# Clean up .Renviron file in home directory
-if test -f ~/.Renviron; then
-    sed -i '/TMPDIR/d' ~/.Renviron
-fi
-
-# Specify a temp folder path (add your personal folder here)
-echo "TMPDIR=/scratch/project_2016453/<add your folder here>" >> ~/.Renviron 
-
 # Run the R script - note that this line is different from the other examples
-srun apptainer_wrapper exec RMPISNOW --no-save --slave -f future_cluster.R
+srun RMPISNOW --no-save --slave -f future_cluster.R
 ```
 
 ### Ex 19: Extra: monitoring processes during the job

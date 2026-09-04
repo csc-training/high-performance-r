@@ -31,7 +31,7 @@ author: ["Heli Juottonen", "Maciej Janicki"]
 -   several data sets analyzed in the same way
 -   same simulation code executed with different parameters
 
-# One R session, one core
+# One R process, one core
 
 -   by default, R processes use one core / thread
 -   lots of cores available doesn't guarantee that R script uses them
@@ -43,7 +43,9 @@ author: ["Heli Juottonen", "Maciej Janicki"]
 
 -   R packages that are built to use multiple cores
 -   the easiest way to speed up and scale up
--   under the hood: R packages for multiprocessing or C-based multithreading
+-   cores or threads argument in functions
+    - set to the number of reserved cores or cores - 1
+-   under the hood: R packages for multiprocessing or C++-based multithreading
 
 # How to know if an R package uses multiple cores/threads?
 
@@ -61,7 +63,7 @@ author: ["Heli Juottonen", "Maciej Janicki"]
 Sys.getenv("SLURM_CPUS_PER_TASK")
 # [1] "3"
 parallel::detectCores()
-# [1] 40
+# [1] 384
 parallelly::availableCores()
 # /proc/self/status 
 #               3 
@@ -87,13 +89,14 @@ parallelly::availableCores()
 -   one process uses many cores: one thread per core
 -   threads share memory
 -   built into a package at C/C++ level (BLAS/LAPACK libraries for multithreading)
--   on Puhti/Mahti: OpenMP threading (Intel Math Kernel Library)
+-   on Roihu: OpenMP threading (Intel Math Kernel Library)
 -   speeds up for example linear algebra
 
 # Caveats for threading
 
 -   only works with packages built to use threading → R package manual
 -   watch out for mixing both multiple processes and multiple threads
+-   confusing terminology: threads argument in R function can mean cores OR OpenMP threads
 
 # Multiple nodes: distributed computing
 
@@ -101,7 +104,7 @@ parallelly::availableCores()
     -   no shared memory
 -   MPI = Message Passing Interface
 -   specific R packages handle the communication between nodes
-    -   `snow`, `future`, `pbdMPI`, ...
+    -   `future`, `snow`, `pbdMPI`, ...
 
 # Multiple nodes: distributed computing
 
@@ -113,7 +116,7 @@ parallelly::availableCores()
 -   start small, then scale up
 -   parallelization has costs
     - very short tasks in parallel → no speed up
--   look for an optimal number of cores/threads
+-   test for an optimal number of cores/threads
     - more is not always faster
 -   load balancing: similar sizes of concurrent tasks to avoid idle resources
 -   parallel random number generation
