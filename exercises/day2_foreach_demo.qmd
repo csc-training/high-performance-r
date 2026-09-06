@@ -13,7 +13,7 @@ Checking how many cores there are available in the session:
 parallelly::availableCores()
 ```
 
-**Important:** do not use parallel::detectCores() on Roihu - it always returns the maximum number of cores in a node (384), no matter how many have been reserved. This causes problems!
+**Important:** do not use parallel::detectCores() on Roihu or in other HPC systems - it always returns the maximum number of cores in a node (384 in Roihu), no matter how many have been reserved. This causes problems!
 
 ```{r}
 # do not use in scripts or R jobs on Roihu - this gives the wrong number of cores!
@@ -52,7 +52,8 @@ Running the same thing **in parallel** taking advantage of **3 cores**:
 ```{r}
 
 library(doParallel)
-registerDoParallel(cores = 3) #registering a backend for foreach
+cl <- makeCluster(3) # creating a cluster of 3 cores
+registerDoParallel(cl) #registering a backend for foreach
 
 tic()
 foreach(i = 1:3, .combine = 'c') %dopar% {
@@ -64,6 +65,12 @@ toc()
 # unregistering the backend by changing back to sequential:
 registerDoSEQ()
 ```
+
+Note: another way to register the parallel backend and define the number of cores above could be:
+
+`registerDoParallel(cores = 3)`
+
+However, this creates a **fork cluster** that doesn't work in RStudio/Windows. The function `makeCluster()` creates by default a **socket cluster** that does.
 
 What would happen without the sleep step (= a very short run)? Why?
 
@@ -79,7 +86,8 @@ toc()
 ```{r}
 # parallel
 tic()
-doParallel::registerDoParallel(cores = 3)
+cl <- makeCluster(3) 
+registerDoParallel(cl)
 foreach(i = 1:3, .combine = 'c') %dopar% {
   sqrt(i)
 }

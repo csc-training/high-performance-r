@@ -4,19 +4,18 @@ event: High Performance R
 author: ["Heli Juottonen", "Maciej Janicki"]
 ---
 
-# Why run R on an HPC cluster?
+# Why run R on a high performance computing (HPC) cluster?
 
--   HPC = high performance computing
 -   more resources:
     - cores
     - memory
     - long runs
     - throughput: many jobs at at the same time
     - large and fast-access storage space
--   one core not much faster than on a normal computer\
-    → **parallelization** to use many cores
 -   pre-installed software
     -   R environment and packages
+-   one core not much faster than on a normal computer\
+    → **parallelization** to use many cores
 
 # Overview of CSC's computing services
 
@@ -60,7 +59,7 @@ author: ["Heli Juottonen", "Maciej Janicki"]
 One standard node on Roihu: 
 
 -  384 cores
--  768 GiB of memory
+-  768-1500 GiB of memory
 
 :::
 
@@ -102,11 +101,16 @@ Images from <https://csc-training.github.io/csc-env-eff/>
 ::: {.column }
 
 - login nodes: no heavy computation!
+```bash
+module load r-env
+R --no-save
+```
 - compute nodes
 - file system
   - home: personal, 15 GB
   - `/projappl`: installations
   - `/scratch`: data for computations
+    - note the [/scratch cleaning policy](https://docs.csc.fi/computing/usage-policy/#disk-cleaning)
 :::
 
 ::::
@@ -117,7 +121,7 @@ Images from <https://csc-training.github.io/csc-env-eff/>
 
 # R environment on Roihu
 
--   module `r-env`
+-   module `r-env` ([documentation](https://docs.csc.fi/apps/r-env/))
 
 ``` r
 module load r-env
@@ -161,10 +165,11 @@ see: <https://docs.csc.fi/apps/r-env/#r-package-installations>
 # Interactive R on Roihu
 
 -   **RStudio:** [Roihu web interface](http://www.roihu.csc.fi)
+    - up to 8 cores, 64 GB of memory, 16 hours
 -   **console R**
-    -   compute node shell
-    -   `sinteractive` on terminal (see [Roihu documentation](https://docs.csc.fi/computing/running/interactive-usage/#the-sinteractive-command))
-
+    -   compute node shell in the Roihu web interface
+    -   connect with SSH and use `sinteractive` in the terminal (see [Roihu documentation](https://docs.csc.fi/computing/running/interactive-usage/#the-sinteractive-command))
+        - up to 32 cores, 60 GB of memory, 32 hours
 <br>
 
 ``` r
@@ -180,6 +185,10 @@ start-r
 -   limitations on resources
     -   RStudio struggles → move to **batch jobs**
 
+<br>
+
+- Tip: if web interface RStudio gets stuck &rarr; [reset RStudio user state](https://docs.csc.fi/computing/webinterface/rstudio/#rstudio-is-not-starting-and-i-see-a-grey-screen-what-should-i-do)
+
 # Non-interactive R on Roihu: batch jobs
 
 -   R script (.R)
@@ -190,7 +199,25 @@ start-r
 
 # Basic template for R batch job script on Roihu
 
-![](figures/batch_job_script.png){ width=80% }
+```bash
+#!/bin/bash
+#SBATCH --job-name=r_batch       # Job name
+#SBATCH --account=<project>     # Define the billing project, e.g. project_2001234
+#SBATCH --output=output_%j.txt  # File for storing output (%j will be job id)
+#SBATCH --error=errors_%j.txt   # File for storing errors (%j will be job id)
+#SBATCH --partition=test        # Job partition (queue), in general use 'small'
+#SBATCH --time=00:05:00         # Max. duration of the job (hh:mm:ss), here 5 min
+#SBATCH --cpus-per-task=1       # Number of cores
+#SBATCH --ntasks=1              # Number of tasks (only change this for multi-node/MPI jobs)
+#SBATCH --nodes=1               # Number of nodes (only change this for multi-node/MPI jobs)
+#SBATCH --mem-per-cpu=2000M     # Memory to reserve per CPU core (MB, here 2 GB)
+
+# Load the r-env module
+module load r-env
+
+# Run the R script (here myscript.R)
+srun Rscript --no-save myscript.R
+```
 
 # Submitting batch jobs
 
@@ -237,4 +264,69 @@ seff <job_id>
 ```
 
 ![](figures/seff.png)
+
+# Resource reservation tips
+
+- reserve only what is needed (but please do reserve what is needed!)
+  - shared system, shared resources
+  - more resources (cores, memory) &rarr; longer queuing time
+- start with a best guess and a small example
+- then use `seff` and [`sacct`](https://a3s.fi/CSC_training/roihu/06_understanding_usage.html#/slurm-accounting-batch-job-resource-usage-22) to monitor resource use
+  - low CPU efficiency?
+      - is R code properly parallelized?
+      - long steps where only one core used?
+      - cores waiting for data from disk?
+  - low memory efficiency? (note: not always reliable)
+
+# File system tips
+
+- reading or writing large numbers of small files is bad for the parallel file system (Lustre) &rarr; I/O (= input/output) intensive operations
+- use temporary local storage (NVMe): `$TMPDIR` on Roihu
+    - R temporary files go here
+    - 20 GB per user by default
+    - 600 GB when using a full node
+    - note: automatically emptied when job finishes &rarr; move results to `/scratch`
+
+# File system tips (2)
+
+- especially I/O intensive jobs: Roihu `hugemem` and `vizinteractice` partitions
+- more options coming with [disaggregated storage in Roihu](https://docs.csc.fi/computing/roihu-disk/#disaggregated-storage)
+- see more on [local storage in Roihu](https://docs.csc.fi/computing/running/batch-job-partitions/#local-storage-on-roihu-nodes) and [temporary local disk areas in Roihu](https://docs.csc.fi/computing/roihu-disk/#temporary-local-disk-areas)
+ 
+# File system tips (3)   
+
+- avoid
+    - accessing lots of small files or opening a single file repeatedly
+    - too many files in a single directory
+- using `tar` and compression is a good start ([instructions](https://docs.csc.fi/support/tutorials/env-guide/packing-and-compression-tools/))
+    - lots of small files -> save as `tar.gz`-> extract in $TMPDIR
+
+```bash
+tar xf /scratch/<project>/big_dataset.tar.gz -C $TMPDIR
+```
+
+# Job planning
+
+- avoid large numbers of small jobs
+    - combine several in one R script
+    - more than 20 short (<30 min) jobs &rarr; package into one job
+- array jobs: submit up to 400 subtasks as one Slurm job
+    - one subtask should ideally be around 30 min or longer
+- [workflow tools](https://docs.csc.fi/computing/running/throughput/), `targets`
+
+# Special partitions on Roihu
+
+For most R jobs, use `small` for batch jobs and `interactive` for RStudio
+
+Special partitions for higher resource needs:  
+
+- `medium`: full nodes (600 GB of `/tmp` space)
+- `longrun` : up to 10 days
+- `hugemem` : up to 6037 GiB per job
+- `hugemem_longrun`: up to 10 days and 6037 GiB
+
+[More information on Roihu partitions](https://docs.csc.fi/computing/running/batch-job-partitions/#roihu-cpu-partitions)
+
+
+
 
