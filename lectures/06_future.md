@@ -58,7 +58,7 @@ plan(sequential)
     - functions in a package: `futurize_supported_packages("package")`
 - change a script from serial to parallel by adding `|> futurize()`in the end
 
-<br>
+# Futurize: "parallelize with one magic function" (2)
 
 ```r
 library(futurize)
@@ -73,7 +73,7 @@ dds <- DESeq2::DESeq(dds) |> futurize()
 res <- vegan::anova(ord, permutations = 999) |> futurize()
 ```
 
-# Futurize: "parallelize with one magic function" (2)
+# Futurize: "parallelize with one magic function" (3)
 
 ```r
 # Serial

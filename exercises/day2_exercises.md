@@ -9,12 +9,12 @@
     project: project_2020485
 
     reservation: high_perfR_day2
+    
+    (note: normally you would also choose partition "interactive" here, but because we have a reservation, this choice is not available)
 
     number of CPU cores: 5
 
     memory: 6 GB
-
-    local disk: 4 GB (default)
 
     R version: 4.6.1 (default)
 
@@ -27,14 +27,14 @@ Note: change the file path in the first command to your folder where you copied 
 ``` r
 # creating a list of .csv files in a folder
 
-comm_csv_list <- list.files(path = "/scratch/project_2020485/xxxxxx/communities/", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
 
 # the for loop below goes through the .csv files in the list and carries out the same operations on each of them (reads in the csv file, carries out a distance-based NMDS ordination, and saves the stress value that describes the reliability of the ordination)
 
 stress_values <- c()
 
 for (comm_csv in comm_csv_list) {
-  comm <- read.csv2(comm_csv, row.names = 1)
+  comm <- read.csv(comm_csv, row.names = 1)
   nmds <- vegan::metaMDS(comm, trace = FALSE)
   Sys.sleep(5) # added to extend the running time of the small example
   stress_values <- c(stress_values, nmds$stress)
@@ -70,11 +70,11 @@ print(Sys.getenv("SLURM_CPUS_PER_TASK")) # What does this do?
 # a tidyverse alternative to apply() functions.
 
 # Change the file path in the next command to your personal folder
-comm_csv_list <- list.files(path = "/scratch/project_2020485/personal/<add folder here>/communities/", pattern = ".csv", full.names = TRUE) 
+comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities/", pattern = ".csv", full.names = TRUE) 
 
 # A function for running the same ordination we used with foreach
 ordination_function <- function(comm_csv) {
-  comm <- read.csv2(comm_csv, row.names = 1)
+  comm <- read.csv(comm_csv, row.names = 1)
   nmds <- vegan::metaMDS(comm, trace = FALSE)
   Sys.sleep(5) # added to extend the running time of the small example
   stress_values <- nmds$stress
@@ -141,13 +141,15 @@ Check the error and output files that should be in the same folder as your R scr
 
 The R script should print the stress values in the output file defined in the batch job script. Are the values there?
 
+Look at the first section of the R script. What information do the commands there provide?
+
 ### Ex 15: Built-in parallelism
 
 In this exercise, we run an example with the package `brms` . From the website of the package (<https://paulbuerkner.com/brms/>):
 
 "*The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan. The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses*."
 
-We are using is as an example of a package, where the use of multiple cores is built in. The only things we have to do to make use of multiple cores is reserve them in the batch job script, and set the number of cores in the function call with `cores = n`. Here, we compare model fitting with 1 core vs. 4 cores.
+We are using it as an example of a package, where the use of multiple cores is built in. The only things we have to do to make use of multiple cores is reserve them in the batch job script, and set the number of cores in the function call with `cores = n`. Here, we compare model fitting with 1 core vs. 4 cores.
 
 ``` r
 library(brms)
@@ -275,30 +277,33 @@ sequential <- system.time(results <- purrr::map(comm_csv_list, ordination_functi
 print(sequential)
 
 # converting the sequential code into parallel with future_map
-plan(multicore)
+plan(multisession)
 multiprocessing <- system.time(future_map(comm_csv_list, ordination_function))
 print(multiprocessing)
 ```
 
 Batch job script: use a similar batch job script as in Ex 15, but reserve 3 cores and 1 GB of memory per core.
 
-Submit the batch job with `sbatch`. Check the running times of the sequential and multicore options.
+Submit the batch job with `sbatch`. Check the running times of the sequential and multisession options.
 
 If your jobs in these exercises keep running longer than 10 minutes, something is probably wrong - use `scancel <job_id>` to cancel again, check what could be wrong and try again.
 
-Note that `plan(multicore`) does not work in RStudio. If you want to try this example in RStudio, use `plan(multisession)` instead.
-
-
 ### Ex 18: Multiple nodes with `future`
 
-When the resources on one node are not anymore sufficient for a job, it is possible to use multiple nodes. This is a more advanced example compared to the ones above - it is not that easy to make this type of jobs work correctly in R. Because we are distributing the job over several nodes, specific packages are needed to handle the communication between the nodes. Here we are again using the `future` package and the `furr` package in the future package family (`furrr` calls `future` in the background).
+When the resources on one node are not anymore sufficient for a job, it is possible to use multiple nodes. 
+This is a more advanced example compared to the ones above - it is not that easy to make this type of jobs work correctly in R. 
+Because we are looking at distributing the job over several nodes, specific packages are needed to handle the communication between the nodes. 
+Here we are again using the `future` package and the `furr` package in the future package family (`furrr` calls `future` in the background).
+
+Note: because Roihu has 384 cores per node, most R users will not have use for multiple nodes on Roihu. Here, we are demonstrating
+how to set up a multinode job but doing it within a single node on Roihu.
 
 ``` r
 library(furrr) # one package of the future family of packages
 
 # function that carries out the same ordination we used earlier
 ordination_function <- function(comm_csv) {
-  comm <- read.csv2(comm_csv, row.names = 1)
+  comm <- read.csv(comm_csv, row.names = 1)
   nmds <- vegan::metaMDS(comm, trace = FALSE)
   Sys.sleep(5) # added to extend the running time of the small example
   stress_values <- nmds$stress
@@ -328,11 +333,11 @@ Batch job script (note the partition, the lines for nodes, ntasks-per-node, and 
 #SBATCH --account=project_2020485       # project number of the course project
 #SBATCH --output=output_%j.txt
 #SBATCH --error=errors_%j.txt
-#SBATCH --partition=large               # different partition to use multiple nodes
+#SBATCH --partition=small               # note: in a real multinode job: medium
 #SBATCH --time=00:05:00                 # h:min:sek, this reserves 5 minutes
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=3
-#SBATCH --cpus-per-task=2
+#SBATCH --nodes=1                       # note: in a real multinode job >1
+#SBATCH --ntasks-per-node=3             # how many times the R script should be run per node
+#SBATCH --cpus-per-task=2               # how many cores should each task (R script run) use
 #SBATCH --mem-per-cpu=1000M
 #SBATCH --reservation=high_perfR_day2
 
@@ -361,3 +366,6 @@ htop -u username
 ``` bash
 pstree username -np
 ```
+
+### Ex 20: Large data sets in R: arrow
+
