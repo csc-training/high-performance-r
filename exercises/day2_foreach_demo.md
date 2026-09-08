@@ -51,7 +51,7 @@ Running the same thing **in parallel** taking advantage of **3 cores**:
 
 ```{r}
 
-library(doParallel)
+library(doParallel) # loads also packages parallel and foreach
 cl <- makeCluster(3) # creating a cluster of 3 cores
 registerDoParallel(cl) #registering a backend for foreach
 
@@ -61,6 +61,9 @@ foreach(i = 1:3, .combine = 'c') %dopar% {
   sqrt(i)
 }
 toc()
+
+# Always use stopCluster() running makeCluster()
+stopCluster(cl)
 
 # unregistering the backend by changing back to sequential:
 registerDoSEQ()

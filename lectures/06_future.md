@@ -54,7 +54,7 @@ plan(sequential)
 
 - new development for extremely simple parallelization
 - supports a selection functions from map-reduce and domain-specific packages
-    - packages: `futurize_supported_packages()``
+    - packages: `futurize_supported_packages()`
     - functions in a package: `futurize_supported_packages("package")`
 - change a script from serial to parallel by adding `|> futurize()`in the end
 

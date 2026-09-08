@@ -2,7 +2,12 @@
 
 ### Ex 13 : foreach
 
-1.  In the course project folder on Roihu `/scratch/project_2020485/shared_data` there is a folder `shared_data` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2020485/your_folder/communities`.
+1.  Create a personal folder on Roihu in the course project `/scratch` directory: `/scratch/project_2020485/`. In R, you can do it with:
+
+```r
+dir.create("/scratch/project_2020485/<add your user name here>")
+```
+In the course project folder on Roihu `/scratch/project_2020485/shared_data/` there is a folder `communities` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2020485/your_folder/communities`.
 
 2.  Start an RStudio session on the Roihu web interface (www.roihu.csc.fi) using the following resources:
 
@@ -43,29 +48,30 @@ for (comm_csv in comm_csv_list) {
 
 4.  Then, let's change the for loop into a parallel approach using `foreach`.
 
-Check the example in the foreach demonstration for a reminder on what needs to be changed to turn the for loop into a parallel foreach operation.
+Check the example in the `foreach` demonstration for a reminder on what needs to be changed to turn the for loop into a parallel `foreach` operation.
 
 Hints: Which packages do you need to load? How can you tell `foreach` how many cores to use? What needs to be added to make the operation parallel?
 
 What happens to the running time compared to the serial approach above?
 
-
 # 5. Running R on an HPC cluster
 
 ### Ex 14: Serial batch job
 
-1.  Prepare an R script to be run as a batch job: copy the R script below into a plain text file with the file ending .R. For example, you can use the script window in RStudio to prepare the R script and save it in your personal folder under the course project `/scratch` directory.
+1.  Prepare an R script to be run as a batch job: copy the R script below into a plain text file with the file ending .R. 
+For example, you can use the script window in RStudio to prepare the R script and save it in your personal folder under the course project `/scratch` directory.
 
 ``` r
 # this R script has two sections:
 
 # 1st one prints out some useful basic information of the R session
 
-print(sessionInfo()) # What does this do? 
-print(parallelly::availableCores()) # What does this do?
-print(Sys.getenv("SLURM_CPUS_PER_TASK")) # What does this do?
+print(sessionInfo())                      # What does this do? 
+print(parallelly::availableCores())       # What does this do?
+print(Sys.getenv("SLURM_CPUS_PER_TASK"))  # What does this do?
 
 # 2nd section runs the same ordination we used in the foreach example on three .csv files
+
 # Instead of a for loop, we use the map() function in the package purrr, which is 
 # a tidyverse alternative to apply() functions.
 
@@ -106,7 +112,7 @@ print(results)
 module load r-env
 
 # Run the R script
-srun Rscript --no-save myscript.R #use your R script file here
+srun Rscript --no-save myscript.R # use your R script file here
 ```
 
 3.  Open a login node shell on in the Roihu web interface and navigate to the folder where your R script file and batch job script file are (`cd foldername` moves you into a folder, `..` moves you one step back in the folder structure, `ls -l` shows the files in a folder).
@@ -130,6 +136,8 @@ To cancel a submitted job:
 ``` bash
 scancel <job_id>
 ```
+
+If your jobs in these exercises keep running longer than 10 minutes, something is probably wrong - use `scancel <job_id>` to cancel the job, check what could be wrong and try again.
 
 When the job has finished, check the resources it used:
 
@@ -175,30 +183,13 @@ brms_results <- microbenchmark(
 print(brms_results)
 ```
 
-Batch job script:
+Prepare a similar batch job script as above but with these changes:
+- time: 15 minutes
+- CPUs: 5
+- memory per CPU: 2 GB
 
-``` bash
-#!/bin/bash
-#SBATCH --job-name=brms               # give your job a name here
-#SBATCH --account=project_2020485     # project number of the course project
-#SBATCH --output=output_%j.txt
-#SBATCH --error=errors_%j.txt
-#SBATCH --partition=small
-#SBATCH --time=00:15:00               # h:min:sek, this reserves 15 minutes
-#SBATCH --ntasks=1
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=5             # this sets the job to have 5 cores (4 + 1 extra)
-#SBATCH --mem-per-cpu=2000M
-#SBATCH --reservation=high_perfR_day2 # only used during this course
-
-# Load r-env
-module load r-env
-
-# Run the R script
-srun Rscript --no-save brms.R # your R script file here
-```
-
-Submit the batch job with `sbatch` in a login node shell as above. How does adding more cores change the running time? What would you say about the resource use of this example?
+Submit the batch job with `sbatch` in a login node shell as above. When the job has finished, check the running times of the single core and multicore options at the end of the output file. 
+There is a lot of output in the file, but you can view the file for example with `tail -f filename` to skip straight to the end (exit the view with ctrl + c). How does adding more cores change the running time? What would you say about the resource use of this example?
 
 ### Ex 16: Array jobs
 
@@ -219,35 +210,37 @@ comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/
 # selecting the file corresponding to the array number from the file list
 comm_csv <- comm_csv_list[arrays]
 
-comm <- read.csv2(comm_csv, row.names = 1)
+comm <- read.csv(comm_csv, row.names = 1)
 nmds <- vegan::metaMDS(comm, trace = FALSE)
 Sys.sleep(5) # added to extend the running time of the small example
 print(nmds$stress)
 ```
 
-Batch job script (note the line `--array`, the different format of the output and error files, and `$SLURM_ARRAY_TASK_ID`in the end of the last line):
+Use our previous batch job scripts as a starting point and make the following changes:
 
-``` bash
-#!/bin/bash
-#SBATCH --job-name=my_array_job           # name your job here
-#SBATCH --account=project_2020485         # project number of the course project
+- add this line to the `#SBATCH`section:
+
+```bash
+#SBATCH --array=1-3
+```
+
+- replace the output and error lines with these:
+
+```bash
 #SBATCH --output=array_job_out_%A_%a.txt  # note the different format
 #SBATCH --error=array_job_err_%A_%a.txt   # note the different format
-#SBATCH --partition=small
-#SBATCH --time=00:05:00
-#SBATCH --ntasks=1
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=1000
-#SBATCH --array=1-3                       # specific line to array jobs
-#SBATCH --reservation=high_perfR_day2     # only used during this course
+```
 
-# Load r-env
-module load r-env
+- on the last line starting with `srun`, add this after the R script file name, so that the last line is:
 
-# Run the R script
+```bash
 srun Rscript --no-save my_array_script.R $SLURM_ARRAY_TASK_ID
 ```
+Reserve 5 minutes of computing time, 1 CPU core, and 1 GB of memory. These are the resources for one subtask
+of the array, so the total job resources will be 3 times these.
+
+(note the line `--array`, the different format of the output and error files, and `$SLURM_ARRAY_TASK_ID`in the end of the last line):
+
 
 # 6. Future for parallel R
 
@@ -263,7 +256,7 @@ library(furrr) # one package of the future family of packages
 
 # We will use the same function as in Ex 14
 ordination_function <- function(comm_csv) {
-  comm <- read.csv2(comm_csv, row.names = 1)
+  comm <- read.csv(comm_csv, row.names = 1)
   nmds <- vegan::metaMDS(comm, trace = FALSE)
   Sys.sleep(5) # added to extend the running time of the small example
   stress_values <- nmds$stress
@@ -284,9 +277,7 @@ print(multiprocessing)
 
 Batch job script: use a similar batch job script as in Ex 15, but reserve 3 cores and 1 GB of memory per core.
 
-Submit the batch job with `sbatch`. Check the running times of the sequential and multisession options.
-
-If your jobs in these exercises keep running longer than 10 minutes, something is probably wrong - use `scancel <job_id>` to cancel again, check what could be wrong and try again.
+Submit the batch job with `sbatch`. Check the running times of the sequential and multisession options at the end of the output file.
 
 ### Ex 18: Multiple nodes with `future`
 
@@ -348,6 +339,9 @@ module load r-env
 srun RMPISNOW --no-save --slave -f future_cluster.R
 ```
 
+Extra challenge: if you have time, feel free to run the job above using multiple nodes: change partition to `medium`, number of nodes to 3,
+number of tasks per node to 1, and remove the reservation. What changes in the output?
+
 ### Ex 19: Extra: monitoring processes during the job
 
 If you are familiar with Linux commands and batch jobs in general, here is an extra challenge. The aim here is to verify that a parallel job works as intended. Start an R batch job that uses multiple cores (note that the job has to run long enough so that you have time for the next steps). Run `squeue` to see which node your job is running on.
@@ -357,9 +351,9 @@ Then, in the terminal, go to the specific node with: `ssh <node_number>`. Then, 
 ``` bash
 top -u username
 ```
+You can exit the view with ctrl + c.
 
 ``` bash
-module load htop
 htop -u username
 ```
 
@@ -367,5 +361,73 @@ htop -u username
 pstree username -np
 ```
 
-### Ex 20: Large data sets in R: arrow
+### Ex 20: Large data sets in R: comparing different ways of reading in a large CSV file
+
+Start an RStudio session on Roihu with 3 cores and 10 GB of memory.
+
+Copy this file from the HSL data set into your own folder under `/scratch/project_2020485/`: `/scratch/project_2020485/shared_data/hsl/modified_data/stop_times_day.csv` . 
+Read in the file `stop_times_day.csv` from the HSL data set with the functions listed below.
+Compare how long reading in the data takes and inspect the resulting object sizes for example with `lobstr:obj_size()`
+
+base R: `read.csv()`
+tidyverse: `read_csv()`
+arrow, as tibble: `read_csv_arrow()`
+arrow, as Arrow Table: `read_csv_arrow()` with `as_data_frame = FALSE`
+
+Which format uses the least memory? What downsides are there in using that format?
+
+
+### Ex 21: Large data sets in R: tidyverse vs. Arrow Dataset 
+
+Use the same RStudio session as above. Clear the environment and restart the R session (Restart &arr; Restart R) to 
+make sure we start from a clean slate in terms of memory use.
+
+Our task here is to use the HSL dataset and compare the number of buses that stop in Hakaniemi on a Monday vs. on a Sunday:
+
+```r
+hsl_day |> 
+  filter(day == "Mon" | day == "Sun") |>
+  right_join(hsl_stops, y= _, by = "stop_id") |> 
+  filter(stop_name == "Hakaniemi") |> 
+  group_by(day) |> 
+  count()
+```
+
+Use `Rprof` or `profvis` to compare how much memory and time this task takes when data is read in with 1) `tidyverse` functions
+(data in memory) and 2) as Arrow Dataset (data on disk, partioned Parquet files). Commands to do this are given below.
+
+Tip: when multiple lines of commands go inside `profvis()`, use curly brackets {} around them.
+
+1) Reading in the data with `tidyverse` functions:
+
+```r
+library(tidyverse)
+
+hsl_day <- read_csv("/scratch/project_2020485/<your folder here>/stop_times_day.csv")
+hsl_stops <- read_csv("/scratch/project_2020485/shared_data/hsl/stops.txt")
+```
+2) Reading in the data as Arrow Dataset, converting it to partitioned Parquet files and reading it in
+in Parquet format:
+
+```r
+library(arrow)
+
+# Open the data and save it has Parquet files partitioned by the column day
+open_csv_dataset("/scratch/project_2020485/<your folder here> /stop_times_day.csv") |>
+  write_dataset("/scratch/project_2020485/<your folder here>/stop_times.parquet", partitioning = "day")
+
+# Load the partitioned Parquet data and
+hsl_day <- open_dataset("/scratch/project_2020485/<your folder here>/stop_times.parquet")
+hsl_stops <- open_csv_dataset("/scratch/project_2020485/shared_data/hsl/stops.txt")
+```
+
+Use `collect()`at the end of the data processing lines to use lazy evaluation with `arrow`. 
+
+Inspect how `stop_times.parquet` looks like in the Files view. Check the dimensions hsl_day with `dim()`
+How large is the original data file on disk? How large is the folder of partitioned Parquet files? 
+You can use for example `file.size()`.
+
+
+
+
 
