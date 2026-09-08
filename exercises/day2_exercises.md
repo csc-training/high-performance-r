@@ -361,7 +361,9 @@ htop -u username
 pstree username -np
 ```
 
-### Ex 20: Large data sets in R: comparing different ways of reading in a large CSV file
+# 7. Large datasets in R
+
+### Ex 20: Comparing different ways of reading in a large CSV file
 
 Start an RStudio session on Roihu with 3 cores and 10 GB of memory.
 
