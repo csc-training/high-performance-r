@@ -11,7 +11,7 @@ library(tidyverse)
 # install.packages("mFD")
 
 # We will use an R package called mFD to calculate functional diversity indices for fish observations. You can read more about this package
-# here is you like (but that is not necessary for the assignment): https://cmlmagneville.github.io/mFD/articles/mFD_general_workflow.html
+# here if you like (but that is not necessary at all for the assignment): https://cmlmagneville.github.io/mFD/articles/mFD_general_workflow.html
 library(mFD)
 
 # Function for cleaning the data
@@ -38,19 +38,20 @@ cleandata <- function(input) {
 # Data comes from https://github.com/fishglob/FishGlob_data
 # Reference: Maureaud, A.A., Palacios-Abrantes, J., Kitchel, Z. et al. FISHGLOB_data: an integrated dataset of fish biodiversity sampled with scientific bottom-trawl surveys. Sci Data 11, 24 (2024). https://doi.org/10.1038/s41597-023-02866-w
 
-# North Sea
+# Data set 1: North Sea
 load(url("https://github.com/fishglob/FishGlob_data/raw/refs/heads/main/outputs/Cleaned_data/NS-IBTS_std_clean.RData"))
 # Here we use the function cleandata defined above to clean the downloaded data and name it "north_sea"
 north_sea <- cleandata(data)
 
-# Scottish West Cost
+# Data set 2: Scottish West Cost
 load(url("https://github.com/fishglob/FishGlob_data/raw/refs/heads/main/outputs/Cleaned_data/SWC-IBTS_std_clean.RData"))
 scottish_west_coast <- cleandata(data)
 
-# English Channel 
+# Data set 3: English Channel 
 load(url("https://github.com/fishglob/FishGlob_data/raw/refs/heads/main/outputs/Cleaned_data/FR-CGFS_std_clean.RData"))
 english_channel <- cleandata(data)
 
+# Removing an unnecessary copy of the last dataset
 rm(data)
 
 # Next, read in the trait data (properties of fish species) from the course project directory and some data wrangling
@@ -73,7 +74,6 @@ traits_sel <- traits_sel |> mutate_if(is.character,as.factor)
 trait_name <- colnames(traits_sel)
 trait_type <- rep("N", length(trait_name))
 trait_type_table <- as.data.frame(cbind(trait_name, trait_type))
-
 
 # The actual function for calculating functional diversity indices: 
 # Several steps of using the package mFD are inside this function
@@ -128,5 +128,5 @@ results <- funct_div(english_channel)
 # The results for each data set are a data frame of several different indices (columns) for each observation stations (rows, named by 4-character combinations of numbers and letters, for example 27E8).
 # Column names should be: "sp_richn" "fdis"     "fmpd"     "fnnd"     "feve"     "fric"     "fdiv"     "fori"     "fspe"     "fide_PC1" "fide_PC2" "fide_PC3" "fide_PC4"
 
-# tip: if you need to pass several R objects (instead of a list of files) into a map-reduce function with as future_map, combine them as a list with list()
+# tip: if you need to pass several R objects (instead of a list of files) into a map-reduce function, for example future_map, combine them as a list with list()
 
