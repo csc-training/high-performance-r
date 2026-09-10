@@ -10,6 +10,8 @@ library(tidyverse)
 .libPaths(c("/projappl/project_2020485/project_rpackages_461", .libPaths()))
 # install.packages("mFD")
 
+# We will use an R package called mFD to calculate functional diversity indices for fish observations. You can read more about this package
+# here is you like (but that is not necessary for the assignment): https://cmlmagneville.github.io/mFD/articles/mFD_general_workflow.html
 library(mFD)
 
 # Function for cleaning the data
@@ -32,7 +34,7 @@ cleandata <- function(input) {
     species_obs <- species_obs[, -1]
 }
 
-# Load in data of fish observations in scientific bottom-trawl surveys
+# Load in three sets of data of fish observations in scientific bottom-trawl surveys:
 # Data comes from https://github.com/fishglob/FishGlob_data
 # Reference: Maureaud, A.A., Palacios-Abrantes, J., Kitchel, Z. et al. FISHGLOB_data: an integrated dataset of fish biodiversity sampled with scientific bottom-trawl surveys. Sci Data 11, 24 (2024). https://doi.org/10.1038/s41597-023-02866-w
 
@@ -51,7 +53,7 @@ english_channel <- cleandata(data)
 
 rm(data)
 
-# Next, read in the trait data from the course project directory and some data wrangling
+# Next, read in the trait data (properties of fish species) from the course project directory and some data wrangling
 traits <- read.csv("/scratch/project_2020485/shared_data/extra_assignment/fish_traits.csv")
 
 # Remove species from trait data that do not occur in the observations
@@ -73,8 +75,9 @@ trait_type <- rep("N", length(trait_name))
 trait_type_table <- as.data.frame(cbind(trait_name, trait_type))
 
 
-# Combine for commands needed for calculating functional diversity indices into a function
-# (some data wrangling also included inside the function)
+# The actual function for calculating functional diversity indices: 
+# Several steps of using the package mFD are inside this function
+# (some data wrangling also included)
 
 funct_div <- function(fish_obs_data) { 
     
