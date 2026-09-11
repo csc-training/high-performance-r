@@ -491,7 +491,7 @@ Tip: when multiple lines of commands go inside `profvis()`, use curly brackets {
 
 1) Reading in the data with `tidyverse` functions:
 
-```r
+```{r}
 library(tidyverse)
 
 hsl_day <- read_csv("/scratch/project_2020485/<your folder here>/stop_times_day.csv")
