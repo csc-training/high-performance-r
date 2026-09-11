@@ -4,7 +4,7 @@
 
 1.  Create a personal folder on Roihu in the course project `/scratch` directory: `/scratch/project_2020485/`. In R, you can do it with:
 
-```r
+```{r}
 dir.create("/scratch/project_2020485/<add your user name here>")
 ```
 In the course project folder on Roihu `/scratch/project_2020485/shared_data/` there is a folder `communities` that contains three .csv files. Copy this folder to your personal folder under `/scratch/project_2020485/your_folder/communities`.
@@ -29,7 +29,7 @@ In the course project folder on Roihu `/scratch/project_2020485/shared_data/` th
 
 Note: change the file path in the first command to your folder where you copied the `communities` folder
 
-``` r
+```{r}
 # creating a list of .csv files in a folder
 
 comm_csv_list <- list.files(path = "/scratch/project_2020485/<your folder here>/communities", pattern = ".csv", full.names = TRUE) 
@@ -56,7 +56,7 @@ What happens to the running time compared to the serial approach above?
 
 Solution:
 
-```r
+```{r}
 library(doParallel)
 cl <- makeCluster(3)
 registerDoParallel(cl)
@@ -78,7 +78,7 @@ stopCluster(cl)
 1.  Prepare an R script to be run as a batch job: copy the R script below into a plain text file with the file ending .R. 
 For example, you can use the script window in RStudio to prepare the R script and save it in your personal folder under the course project `/scratch` directory.
 
-``` r
+```{r}
 # this R script has two sections:
 
 # 1st one prints out some useful basic information of the R session
@@ -176,7 +176,7 @@ In this exercise, we run an example with the package `brms` . From the website o
 
 We are using it as an example of a package, where the use of multiple cores is built in. The only things we have to do to make use of multiple cores is reserve them in the batch job script, and set the number of cores in the function call with `cores = n`. Here, we compare model fitting with 1 core vs. 4 cores.
 
-``` r
+``` {r}
 library(brms)
 library(microbenchmark)
 
@@ -237,7 +237,7 @@ Array jobs are another way to handle embarassingly parallel problems, for exampl
 
 R script for one iteration of the for loop we had above:
 
-``` r
+``` {r}
 # this lets us access the array number in R (from $SLURM_ARRAY_TASK_ID in the batch job script)
 arrays <- commandArgs(trailingOnly = TRUE)
 
@@ -316,7 +316,7 @@ The package `future` and the family of R packages around it offer lots of possib
 
 R script:
 
-``` r
+``` {r}
 library(purrr)
 library(furrr) # one package of the future family of packages
 
@@ -355,7 +355,7 @@ Here we are again using the `future` package and the `furr` package in the futur
 Note: because Roihu has 384 cores per node, most R users will not have use for multiple nodes on Roihu. Here, we are demonstrating
 how to set up a multinode job but doing it within a single node on Roihu.
 
-``` r
+``` {r}
 library(furrr) # one package of the future family of packages
 
 # function that carries out the same ordination we used earlier
@@ -444,7 +444,7 @@ Which format uses the least memory? What downsides are there in using that forma
 
 Solution:
 
-```r
+```{r}
 library(tidyverse)
 library(arrow)
 library(tictoc)
@@ -475,7 +475,7 @@ make sure we start from a clean slate in terms of memory use.
 
 Our task here is to use the HSL dataset and compare the number of buses that stop in Hakaniemi on a Monday vs. on a Sunday:
 
-```r
+```{r}
 hsl_day |> 
   filter(day == "Mon" | day == "Sun") |>
   right_join(hsl_stops, y= _, by = "stop_id") |> 
@@ -500,7 +500,7 @@ hsl_stops <- read_csv("/scratch/project_2020485/shared_data/hsl/stops.txt")
 2) Reading in the data as Arrow Dataset, converting it to partitioned Parquet files and reading it in
 in Parquet format:
 
-```r
+```{r}
 # Let's remove the existing copy of the data
 rm(hsl_day)
 
@@ -523,7 +523,7 @@ You can use for example `file.size()`.
 
 Solution:
 
-```r
+```{r}
 library(tidyverse)
 library(profvis)
 
